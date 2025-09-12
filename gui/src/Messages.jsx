@@ -14,12 +14,14 @@ const Messages = () => {
   const fetchMessages = async () => {
     try {
       const token = localStorage.getItem('token');
+      if (!token) throw new Error('Token yok, login ol');
       const res = await axios.get('http://localhost:5500/api/messages', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMessages(res.data);
     } catch (err) {
-      console.log(err);
+      console.log(err.message);
+      alert('Mesajlar yüklenemedi: ' + err.message);
     }
   };
 
@@ -27,13 +29,14 @@ const Messages = () => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
+      if (!token) throw new Error('Token yok');
       const res = await axios.post('http://localhost:5500/api/messages', { text, receiver: receiverId }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMessages([...messages, res.data]);
       setText('');
     } catch (err) {
-      alert('Error sending message');
+      alert('Mesaj gönderilemedi: ' + err.message);
     }
   };
 

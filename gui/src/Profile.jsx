@@ -12,17 +12,22 @@ const Profile = () => {
   const fetchProfile = async () => {
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('Token yok, login ol');
+        return;  // Crash'i önle
+      }
       const decoded = JSON.parse(atob(token.split('.')[1]));
       const res = await axios.get(`http://localhost:5500/api/user/${decoded.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setUser(res.data);
     } catch (err) {
-      console.log(err);
+      console.log('Profile yüklenemedi:', err.message);
+      alert('Profil yüklenemedi: ' + err.message);
     }
   };
 
-  if (!user) return <div className="profile-loading">Loading...</div>;
+  if (!user) return <div className="profile-loading">Loading... (veya login ol)</div>;
 
   return (
     <div className="profile">

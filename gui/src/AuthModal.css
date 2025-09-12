@@ -13,6 +13,13 @@
   text-align: center;
 }
 
+.auth-error {  /* Yeni: Error stili */
+  color: red;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
 .auth-modal-form {
   display: flex;
   flex-direction: column;

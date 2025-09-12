@@ -6,6 +6,7 @@ import './TodoList.css';
 
 const TodoList = () => {
   const [todos, setTodos] = useState([]);
+  const [showLoginAlert, setShowLoginAlert] = useState(true);  // Sadece ilk seferde göster
 
   useEffect(() => {
     fetchTodos();
@@ -14,12 +15,23 @@ const TodoList = () => {
   const fetchTodos = async () => {
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        if (showLoginAlert) {
+          alert('Token yok, lütfen giriş yapın!');
+          setShowLoginAlert(false);
+        }
+        return;
+      }
       const res = await axios.get('http://localhost:5500/api/todos', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTodos(res.data);
     } catch (err) {
-      console.log('Not logged in or error:', err);
+      console.log('Todos error:', err.message);
+      if (err.response?.status === 401 && showLoginAlert) {
+        alert('Oturum süreniz doldu, lütfen giriş yapın!');
+        setShowLoginAlert(false);
+      }
     }
   };
 

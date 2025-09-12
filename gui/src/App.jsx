@@ -14,13 +14,13 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>  {/* Uyarıları silmek için */}
       <div className="app">
         <Navbar isLoggedIn={isLoggedIn} setIsAuthModalOpen={setIsAuthModalOpen} />
         <Routes>
           <Route path="/" element={<TodoList />} />
           <Route path="/messages" element={<Messages />} />
-          <Route path="/profile" element=<Profile /> />
+          <Route path="/profile" element={<Profile />} />
           <Route path="/search" element={<UserSearch />} />
         </Routes>
         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} setIsLoggedIn={setIsLoggedIn} />
