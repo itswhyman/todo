@@ -1,0 +1,34 @@
+.profile {
+  margin-top: 2rem;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+  background: white;
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.profile-title {
+  font-size: 1.875rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+.profile-avatar {
+  width: 8rem;
+  height: 8rem;
+  border-radius: 50%;
+  margin: 0 auto 1rem;
+  display: block;
+}
+
+.profile-info {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.profile-loading {
+  text-align: center;
+  margin-top: 2rem;
+}

@@ -1,0 +1,63 @@
+.messages {
+  margin-top: 2rem;
+}
+
+.messages-title {
+  font-size: 1.875rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+}
+
+.messages-container {
+  background: white;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.messages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.message-item {
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.message-item-sent {
+  background-color: #dbeafe;
+  margin-left: auto;
+  max-width: 70%;
+}
+
+.message-item-received {
+  background-color: #f3f4f6;
+  max-width: 70%;
+}
+
+.messages-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.messages-input {
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+  font-size: 1rem;
+}
+
+.messages-button {
+  background-color: #2563eb;
+  color: white;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.25rem;
+}
+
+.messages-button:hover {
+  background-color: #1e40af;
+}
