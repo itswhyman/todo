@@ -1,204 +1,282 @@
-/* Profile.css */
 .profile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 20px;
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 15px 1rem;
+  background-color: #dcfff967;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.199);
+  box-shadow: 2px 2px rgba(0, 0, 0, 0.349);
 }
 
 .profile-header {
-  position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 1.5rem;
   width: 100%;
-  max-width: 600px;
-  margin-bottom: 20px;
-  padding: 20px;
-  box-sizing: border-box;
+  margin-bottom: 1rem;
+  position: relative;
 }
 
 .profile-photo {
-  margin-right: 20px;
+  display: flex;
+  justify-content: center;
 }
 
 .profile-img {
-  width: 100px;
-  height: 100px;
+  width: 120px;
+  height: 120px;
   border-radius: 50%;
+  object-fit: cover;
+}
+
+.profile-avatar {
+  color: #6b7280;
 }
 
 .profile-user-info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .profile-username {
-  font-size: 24px;
-  margin: 0;
+  font-size: 1.875rem;
+  font-weight: bold;
+  color: #111827;
 }
 
 .profile-stats {
   display: flex;
-  gap: 20px;
-  margin-top: 10px;
+  gap: 1.5rem;
 }
 
 .profile-stat {
   cursor: pointer;
 }
 
-.profile-bio {
-  margin-top: 10px;
-  text-align: left;
-  width: 100%;
-  max-width: 600px;
-  padding-left: 20px;
-  box-sizing: border-box;
+.profile-stat strong {
+  font-weight: 600;
 }
 
 .profile-actions {
-  position: absolute;
-  top: 10px;
-  right: 10px;
   display: flex;
-  gap: 10px;
+  gap: 0.5rem;
+  position: absolute;
+  top: 0;
+  right: 0;
 }
 
 .profile-action-icon {
-  font-size: 18px;
   cursor: pointer;
-  color: #666;
-  transition: color 0.2s;
+  color: #2563eb;
+  font-size: 1.25rem;
 }
 
 .profile-action-icon:hover {
-  color: #007bff;
+  color: #1e40af;
+}
+
+.user-profile-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.user-profile-button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s ease;
+}
+.user-profile-button {
+  transition: background-color 0.3s, transform 0.2s;
+}
+.user-profile-button:hover {
+  background-color: #007bff;
+  transform: scale(1.05);
+}
+.user-profile-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.user-profile-follow {
+  background-color: #2563eb;
+  color: white;
+}
+
+.user-profile-follow:hover {
+  background-color: #1e40af;
+}
+
+.user-profile-message {
+  background-color: #16a34a;
+  color: white;
+}
+
+.user-profile-message:hover {
+  background-color: #15803d;
+}
+
+.user-profile-block {
+  background-color: #dc2626;
+  color: white;
+}
+
+.user-profile-block:hover {
+  background-color: #b91c1c;
+}
+
+.profile-bio {
+  margin-top: 1rem;
+  text-align: center;
+  color: #374151;
+}
+
+.profile-loading {
+  text-align: center;
+  margin-top: 2rem;
+  color: #6b7280;
 }
 
 .ban-user-section {
+  margin-top: 1rem;
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 0.5rem;
+  justify-content: center;
 }
 
 .ban-user-input {
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+}
+
+.ban-user-button,
+.unban-user-button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
 }
 
 .ban-user-button {
-  padding: 8px 16px;
-  background-color: #ff4444;
+  background-color: #dc2626;
   color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
 }
 
 .ban-user-button:hover {
-  background-color: #cc0000;
+  background-color: #b91c1c;
 }
 
 .unban-user-button {
-  padding: 8px 16px;
-  background-color: #44ff44;
+  background-color: #16a34a;
   color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
 }
 
 .unban-user-button:hover {
-  background-color: #00cc00;
+  background-color: #15803d;
 }
 
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  right: 0;
+  bottom: 0;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
+  z-index: 1000;
 }
 
 .modal-content {
   background: white;
-  padding: 20px;
-  border-radius: 8px;
-  max-width: 400px;
+  padding: 1.5rem;
+  border-radius: 0.25rem;
+  max-width: 500px;
   width: 100%;
-  text-align: center;
+}
+
+.modal-content h2 {
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
 }
 
 .modal-content ul {
   list-style: none;
   padding: 0;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 .modal-content li {
+  padding: 0.5rem 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
 }
 
 .modal-content button {
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
+  padding: 0.25rem 0.5rem;
   border: none;
-  border-radius: 4px;
+  border-radius: 0.25rem;
   cursor: pointer;
-  margin-left: 5px;
-}
-
-.modal-content button:hover {
-  background-color: #0056b3;
 }
 
 .form-group {
-  margin-bottom: 15px;
-  text-align: left;
+  margin-bottom: 1rem;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
+  margin-bottom: 0.25rem;
 }
 
-.form-group input {
+.form-group input,
+.form-group textarea {
   width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box;
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
 }
 
 .modal-buttons {
   display: flex;
-  gap: 10px;
-  justify-content: center;
-  margin-top: 20px;
+  gap: 0.5rem;
+  justify-content: flex-end;
 }
 
 .modal-buttons button {
-  padding: 8px 16px;
+  padding: 0.5rem 1rem;
   border: none;
-  border-radius: 4px;
+  border-radius: 0.25rem;
   cursor: pointer;
 }
 
 .modal-buttons button[type="submit"] {
-  background-color: #007bff;
+  background-color: #2563eb;
   color: white;
 }
 
+.modal-buttons button[type="submit"]:hover {
+  background-color: #1e40af;
+}
+
 .modal-buttons button[type="button"] {
-  background-color: #6c757d;
+  background-color: #6b7280;
   color: white;
+}
+
+.modal-buttons button[type="button"]:hover {
+  background-color: #4b5563;
 }

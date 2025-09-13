@@ -1,44 +1,63 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import './UserSearch.css';
 
 const UserSearch = () => {
   const [query, setQuery] = useState('');
   const [users, setUsers] = useState([]);
+  const navigate = useNavigate();
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
+  const handleSearch = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`http://localhost:5500/api/users?q=${query}`, {
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+      const res = await axios.get(`http://localhost:5500/api/users?q=${encodeURIComponent(query)}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setUsers(res.data);
     } catch (err) {
-      console.log(err);
+      console.error('Search error:', err.response?.data);
+      alert(err.response?.data?.msg || 'Arama başarısız');
     }
   };
 
   return (
     <div className="user-search">
-      <h1 className="user-search-title">Search Users</h1>
-      <form onSubmit={handleSearch} className="user-search-form">
+      <h2 className="user-search-title">Kullanıcı Ara</h2>
+      <div className="user-search-form">
         <input
           type="text"
+          className="user-search-input"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search username..."
-          className="user-search-input"
+          placeholder="Kullanıcı ara (örn: s)"
         />
-        <button type="submit" className="user-search-button">Search</button>
-      </form>
+        <button className="user-search-button" onClick={handleSearch}>
+          Search
+        </button>
+      </div>
       <ul className="user-search-list">
-        {users.map(user => (
-          <li key={user._id} className="user-search-item">
-            <span>{user.username} - {user.email}</span>
-            <button className="user-search-message">Message</button>
-          </li>
-        ))}
+        {users.length > 0 ? (
+          users.map(user => (
+            <li
+              key={user._id}
+              className="user-search-item"
+              onClick={() => navigate(`/user/${user._id}`)}
+            >
+              <img
+                src={user.profilePicture || 'https://via.placeholder.com/48x48?text=PP'}
+                alt={`${user.username}'s profile`}
+              />
+              <span>{user.username}</span>
+            </li>
+          ))
+        ) : (
+          <li className="user-search-no-results">Kullanıcı bulunamadı</li>
+        )}
       </ul>
     </div>
   );

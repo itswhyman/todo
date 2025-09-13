@@ -1,17 +1,24 @@
 .user-search {
   margin-top: 2rem;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0 1rem;
+  width: 100%; /* Yeni: Ana konteyner tam genişlik */
 }
 
 .user-search-title {
   font-size: 1.875rem;
   font-weight: bold;
   margin-bottom: 1.5rem;
+  text-align: center;
 }
 
 .user-search-form {
   margin-bottom: 1rem;
   display: flex;
   gap: 0.5rem;
+  justify-content: center;
 }
 
 .user-search-input {
@@ -20,6 +27,7 @@
   border-radius: 0.25rem;
   width: 16rem;
   font-size: 1rem;
+  max-width: 100%;
 }
 
 .user-search-button {
@@ -36,8 +44,13 @@
 
 .user-search-list {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 0.5rem;
+  align-items: stretch;
+  width: 100%;
+  padding: 0;          /* Varsayılan padding'i kaldırır */
+  margin: 0;           /* Varsayılan margin'i kaldırır */
+  list-style: none;    /* Noktaları kaldırır */
 }
 
 .user-search-item {
@@ -46,17 +59,53 @@
   border-radius: 0.25rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: flex-start; /* Yeni: İçerik sola yaslı, ama kart tam genişlikte */
+  gap: 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  width: 100%; /* Kart tam genişlikte */
+  max-width: none;
+  margin: 0;
+  min-height: 60px; /* Opsiyonel: Sabit yükseklik, satır tutarlılığı için */
 }
 
-.user-search-message {
-  background: none;
-  border: none;
-  color: #2563eb;
-  font-size: 0.9rem;
+.user-search-item:hover {
+  background-color: #f9fafb;
 }
 
-.user-search-message:hover {
-  color: #1e40af;
+.user-search-item img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.user-search-item span {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #111827;
+  margin: 0;
+}
+
+.user-search-no-results {
+  padding: 1rem;
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
+  width: 100%; /* Yeni: Boş mesaj da tam genişlik */
+  margin: 0 auto;
+}
+
+@media (max-width: 640px) {
+  .user-search {
+    padding: 0 0.5rem;
+  }
+  .user-search-input {
+    width: 100%;
+  }
+  .user-search-item {
+    max-width: none;
+  }
 }

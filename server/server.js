@@ -6,6 +6,7 @@ import bodyParser from 'body-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import apiRoutes from './routes/api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -19,18 +20,30 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // uploads klasörünü public yapmak
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/todoapp')
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.log('MongoDB connection error:', err));
+// Connect'i await ile yap, strictQuery false ekle (bug fix)
+mongoose.set('strictQuery', false);  // Bug'u atlat: writeErrors crash'i önler
+let connected = false;
+try {
+  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/todoapp');
+  connected = true;
+  console.log('MongoDB connected');
+} catch (err) {
+  console.log('MongoDB connection error:', err);
+  process.exit(1);  // Hata olursa sunucuyu kapat
+}
 
-import apiRoutes from './routes/api.js';
-app.use('/api', apiRoutes);
+if (connected) {
+  
+  app.use('/api', apiRoutes);
 
-// Debug amaçlı 404 handler
-app.use('*', (req, res) => {
-  console.log(`Unmatched route: ${req.method} ${req.originalUrl}`);
-  res.status(404).json({ msg: 'Route not found' });
-});
+  // Debug amaçlı 404 handler
+  app.use('*', (req, res) => {
+    console.log(`Unmatched route: ${req.method} ${req.originalUrl}`);
+    res.status(404).json({ msg: 'Route not found' });
+  });
 
-const PORT = process.env.PORT || 5500;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  const PORT = process.env.PORT || 5500;
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+} else {
+  console.log('DB bağlantısı başarısız, sunucu başlatılmadı.');
+}

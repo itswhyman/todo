@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import axios from 'axios';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser, faPen, faGear } from '@fortawesome/free-solid-svg-icons';
+import { toast } from 'react-toastify';
+import { UserContext } from './context/UserContext';
 import './Profile.css';
 
 const Profile = ({ setIsAuthModalOpen }) => {
-  const [user, setUser] = useState(null);
+  const { currentUser, fetchCurrentUser } = useContext(UserContext);
   const [followers, setFollowers] = useState([]);
   const [following, setFollowing] = useState([]);
   const [blockedUsers, setBlockedUsers] = useState([]);
@@ -15,42 +17,34 @@ const Profile = ({ setIsAuthModalOpen }) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [editData, setEditData] = useState({ username: '', password: '', profilePicture: '', file: null });
+  const [loading, setLoading] = useState(true); // Yeni loading state'i
 
   useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setIsAuthModalOpen(true);
-        return;
-      }
-      const decoded = JSON.parse(atob(token.split('.')[1]));
-      const res = await axios.get(`http://localhost:5500/api/user/${decoded.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
+    if (currentUser) {
+      setIsAdmin(currentUser.isAdmin || false);
+      setEditData({
+        username: currentUser.username,
+        password: '',
+        profilePicture: currentUser.profilePicture || '',
+        file: null,
       });
-      setUser(res.data);
-      setIsAdmin(decoded.isAdmin || false);
-      setEditData({ username: res.data.username, password: '', profilePicture: res.data.profilePicture || '', file: null });
-    } catch (err) {
-      console.log('Profile yüklenemedi:', err.message);
-      alert('Profil yüklenemedi: ' + err.message);
+      setLoading(false);
+    } else {
+      setLoading(true); // currentUser null ise yükleniyor
     }
-  };
+  }, [currentUser]);
 
   const fetchFollowers = async () => {
     try {
       const token = localStorage.getItem('token');
       const decoded = JSON.parse(atob(token.split('.')[1]));
       const res = await axios.get(`http://localhost:5500/api/user/${decoded.id}/followers`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       setFollowers(res.data || []);
       setShowFollowersModal(true);
     } catch (err) {
-      console.warn('Takipçiler yüklenemedi (endpoint yok, varsayılan boş):', err.message);
+      toast.warn('Takipçiler yüklenemedi: ' + err.message);
       setFollowers([]);
       setShowFollowersModal(true);
     }
@@ -61,12 +55,12 @@ const Profile = ({ setIsAuthModalOpen }) => {
       const token = localStorage.getItem('token');
       const decoded = JSON.parse(atob(token.split('.')[1]));
       const res = await axios.get(`http://localhost:5500/api/user/${decoded.id}/following`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       setFollowing(res.data || []);
       setShowFollowingModal(true);
     } catch (err) {
-      console.warn('Takip edilenler yüklenemedi (endpoint yok, varsayılan boş):', err.message);
+      toast.warn('Takip edilenler yüklenemedi: ' + err.message);
       setFollowing([]);
       setShowFollowingModal(true);
     }
@@ -77,12 +71,12 @@ const Profile = ({ setIsAuthModalOpen }) => {
       const token = localStorage.getItem('token');
       const decoded = JSON.parse(atob(token.split('.')[1]));
       const res = await axios.get(`http://localhost:5500/api/user/${decoded.id}/blocked`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       setBlockedUsers(res.data || []);
       setShowBlockedModal(true);
     } catch (err) {
-      console.warn('Engellenenler yüklenemedi (endpoint yok, varsayılan boş):', err.message);
+      toast.warn('Engellenenler yüklenemedi: ' + err.message);
       setBlockedUsers([]);
       setShowBlockedModal(true);
     }
@@ -92,13 +86,12 @@ const Profile = ({ setIsAuthModalOpen }) => {
     try {
       const token = localStorage.getItem('token');
       await axios.post(`http://localhost:5500/api/user/${userId}/block`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
-      alert('Kullanıcı engellendi');
-      fetchProfile();
+      toast.success('Kullanıcı engellendi');
+      await fetchCurrentUser();
     } catch (err) {
-      console.log('Engelleme başarısız:', err.message);
-      alert('Engelleme başarısız: ' + err.message);
+      toast.error('Engelleme başarısız: ' + (err.response?.data?.msg || err.message));
     }
   };
 
@@ -106,13 +99,12 @@ const Profile = ({ setIsAuthModalOpen }) => {
     try {
       const token = localStorage.getItem('token');
       await axios.post(`http://localhost:5500/api/user/${userId}/unblock`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       setBlockedUsers(blockedUsers.filter(user => user._id !== userId));
-      alert('Kullanıcının engeli kaldırıldı');
+      toast.success('Kullanıcının engeli kaldırıldı');
     } catch (err) {
-      console.log('Engel kaldırma başarısız:', err.message);
-      alert('Engel kaldırma başarısız: ' + err.message);
+      toast.error('Engel kaldırma başarısız: ' + (err.response?.data?.msg || err.message));
     }
   };
 
@@ -120,13 +112,12 @@ const Profile = ({ setIsAuthModalOpen }) => {
     try {
       const token = localStorage.getItem('token');
       await axios.post(`http://localhost:5500/api/user/${userId}/ban`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
-      alert('Kullanıcı banlandı');
-      fetchProfile();
+      toast.success('Kullanıcı banlandı');
+      await fetchCurrentUser();
     } catch (err) {
-      console.log('Banlama başarısız:', err.message);
-      alert('Banlama başarısız: ' + err.message);
+      toast.error('Banlama başarısız: ' + (err.response?.data?.msg || err.message));
     }
   };
 
@@ -134,13 +125,12 @@ const Profile = ({ setIsAuthModalOpen }) => {
     try {
       const token = localStorage.getItem('token');
       await axios.post(`http://localhost:5500/api/user/${userId}/unban`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
-      alert('Ban kaldırıldı');
-      fetchProfile();
+      toast.success('Ban kaldırıldı');
+      await fetchCurrentUser();
     } catch (err) {
-      console.log('Ban kaldırma başarısız:', err.message);
-      alert('Ban kaldırma başarısız: ' + err.message);
+      toast.error('Ban kaldırma başarısız: ' + (err.response?.data?.msg || err.message));
     }
   };
 
@@ -152,61 +142,94 @@ const Profile = ({ setIsAuthModalOpen }) => {
       const formData = new FormData();
       formData.append('username', editData.username);
       if (editData.password) formData.append('password', editData.password);
-      if (editData.file) formData.append('file', editData.file);
-      else if (editData.profilePicture) formData.append('profilePicture', editData.profilePicture);
-
-      const res = await axios.put(`http://localhost:5500/api/user/${decoded.id}`, formData, {
-        headers: { 
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
+      if (editData.file) {
+        if (!['image/jpeg', 'image/png', 'image/gif'].includes(editData.file.type)) {
+          throw new Error('Sadece JPEG, PNG veya GIF dosyaları kabul edilir');
         }
+        if (editData.file.size > 5 * 1024 * 1024) {
+          throw new Error('Dosya boyutu 5MB\'dan büyük olamaz');
+        }
+        formData.append('file', editData.file);
+      } else if (editData.profilePicture) {
+        formData.append('profilePicture', editData.profilePicture);
+      }
+
+      await axios.put(`http://localhost:5500/api/user/${decoded.id}`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
       });
-      alert('Profil güncellendi');
+      toast.success('Profil güncellendi');
       setShowEditModal(false);
-      fetchProfile();
+      await fetchCurrentUser();
     } catch (err) {
-      alert('Güncelleme başarısız: ' + err.message);
+      const errorMsg =
+        err.response?.data?.msg ||
+        err.message ||
+        'Sunucu hatası, lütfen dosya formatını (JPEG/PNG/GIF) veya boyutunu (max 5MB) kontrol edin';
+      toast.error(`Güncelleme başarısız: ${errorMsg}`);
     }
   };
 
   const handleEditChange = (e) => {
     if (e.target.name === 'file') {
-      setEditData({ ...editData, file: e.target.files[0], profilePicture: '' });
+      const file = e.target.files[0];
+      if (file && !['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
+        toast.error('Sadece JPEG, PNG veya GIF dosyaları kabul edilir');
+        return;
+      }
+      if (file && file.size > 5 * 1024 * 1024) {
+        toast.error('Dosya boyutu 5MB\'dan büyük olamaz');
+        return;
+      }
+      setEditData({ ...editData, file, profilePicture: '' });
     } else {
       setEditData({ ...editData, [e.target.name]: e.target.value, file: null });
     }
   };
 
-  if (!user) return <div className="profile-loading">Loading... (veya login ol)</div>;
+  if (loading) return <div className="profile-loading">Yükleniyor...</div>;
+  if (!currentUser) return <div className="profile-loading">Kullanıcı bulunamadı</div>;
 
   return (
     <div className="profile">
       <div className="profile-header">
         <div className="profile-photo">
-          {user.profilePicture ? (
-            <img src={user.profilePicture} alt="Profile Photo" className="profile-img" />
+          {currentUser.profilePicture ? (
+            <img src={currentUser.profilePicture} alt="Profile Photo" className="profile-img" />
           ) : (
             <FontAwesomeIcon icon={faUser} className="profile-avatar" size="5x" />
           )}
         </div>
         <div className="profile-user-info">
-          <h1 className="profile-username">{user.username}</h1>
+          <h1 className="profile-username">{currentUser.username}</h1>
           <div className="profile-stats">
             <div className="profile-stat" onClick={fetchFollowing}>
-              <strong>Following:</strong> {user.followingCount || 0}
+              <strong>Following:</strong> {currentUser.followingCount || 0}
             </div>
             <div className="profile-stat" onClick={fetchFollowers}>
-              <strong>Followers:</strong> {user.followersCount || 0}
+              <strong>Followers:</strong> {currentUser.followersCount || 0}
             </div>
           </div>
-        </div>
-        <div className="profile-actions">
-          <FontAwesomeIcon icon={faPen} className="profile-action-icon" onClick={() => setShowEditModal(true)} title="Düzenle" />
-          <FontAwesomeIcon icon={faGear} className="profile-action-icon" onClick={() => alert('Ayarlar yakında')} title="Ayarlar" />
+          <div className="profile-actions">
+            <FontAwesomeIcon
+              icon={faPen}
+              className="profile-action-icon"
+              onClick={() => setShowEditModal(true)}
+              title="Düzenle"
+            />
+            <FontAwesomeIcon
+              icon={faGear}
+              className="profile-action-icon"
+              onClick={() => toast.info('Ayarlar yakında')}
+              title="Ayarlar"
+            />
+          </div>
         </div>
       </div>
       <div className="profile-bio">
-        <p>{user.bio || 'Bio yok'}</p>
+        <p>{currentUser.bio || 'Bio yok'}</p>
       </div>
 
       {isAdmin && (
@@ -232,7 +255,6 @@ const Profile = ({ setIsAuthModalOpen }) => {
         </div>
       )}
 
-      {/* Followers Modal */}
       {showFollowersModal && (
         <div className="modal-overlay" onClick={() => setShowFollowersModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -255,7 +277,6 @@ const Profile = ({ setIsAuthModalOpen }) => {
         </div>
       )}
 
-      {/* Following Modal */}
       {showFollowingModal && (
         <div className="modal-overlay" onClick={() => setShowFollowingModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -278,7 +299,6 @@ const Profile = ({ setIsAuthModalOpen }) => {
         </div>
       )}
 
-      {/* Blocked Users Modal */}
       {showBlockedModal && (
         <div className="modal-overlay" onClick={() => setShowBlockedModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -301,7 +321,6 @@ const Profile = ({ setIsAuthModalOpen }) => {
         </div>
       )}
 
-      {/* Edit Modal */}
       {showEditModal && (
         <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -339,13 +358,15 @@ const Profile = ({ setIsAuthModalOpen }) => {
                 <input
                   type="file"
                   name="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/gif"
                   onChange={handleEditChange}
                 />
               </div>
               <div className="modal-buttons">
                 <button type="submit">Kaydet</button>
-                <button type="button" onClick={() => setShowEditModal(false)}>İptal</button>
+                <button type="button" onClick={() => setShowEditModal(false)}>
+                  İptal
+                </button>
               </div>
             </form>
           </div>
