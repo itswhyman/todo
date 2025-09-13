@@ -1,11 +1,14 @@
 .navbar {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 1rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background-color: #ffffff; /* Beyaz arka plan */
+  padding: 1.2rem 2.4rem; /* Hafif büyütülmüş padding */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 }
 
 .navbar-container {
-  max-width: 1200px;
+  max-width: 1320px; /* Hafif büyütülmüş max-width */
   margin: 0 auto;
   display: flex;
   justify-content: space-between;
@@ -13,37 +16,75 @@
 }
 
 .navbar-logo {
-  color: white;
-  font-size: 1.5rem;
-  font-weight: bold;
+  font-size: 2rem; /* Logo biraz büyütüldü */
+  font-weight: 700;
+  color: #2563eb;
   text-decoration: none;
+  font-family: 'Inter', sans-serif;
+  transition: color 0.3s;
+}
+
+.navbar-logo:hover {
+  color: #1e40af;
 }
 
 .navbar-links {
   display: flex;
-  gap: 1rem;
+  gap: 2rem; /* İkonlar/butonlar arası boşluk artırıldı */
   align-items: center;
 }
 
-.navbar-links a {
-  color: white;
-  text-decoration: none;
-  font-size: 1rem;
+.navbar-link {
+  color: #2563eb;
+  font-size: 1.4rem; /* İkonlar biraz büyütüldü */
+  transition: color 0.3s;
 }
 
-.navbar-links a:hover {
-  color: #dbeafe;
+.navbar-link:hover {
+  color: #1e40af;
 }
 
 .navbar-button {
-  background-color: white;
-  color: #2563eb;
-  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  color: white;
+  padding: 0.7rem 1.4rem; /* Buton biraz büyütüldü */
   border: none;
-  border-radius: 0.25rem;
-  font-size: 1rem;
+  border-radius: 0.6rem; /* Hafif daha yuvarlak */
+  font-size: 1.1rem; /* Font biraz büyütüldü */
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.3s, transform 0.2s;
 }
 
 .navbar-button:hover {
-  background-color: #f3f4f6;
+  background: linear-gradient(135deg, #1e40af, #2563eb);
+  transform: translateY(-2px);
+}
+
+.navbar-button:active {
+  transform: translateY(0);
+}
+
+/* Mobil uyumluluk */
+@media (max-width: 768px) {
+  .navbar {
+    padding: 1rem 1.2rem; /* Mobil için hafif büyütülmüş */
+  }
+
+  .navbar-logo {
+    font-size: 1.75rem; /* Mobil logo büyütüldü */
+  }
+
+  .navbar-links {
+    gap: 1.2rem; /* Mobil boşluk artırıldı */
+  }
+
+  .navbar-link {
+    font-size: 1.2rem; /* Mobil ikonlar büyütüldü */
+  }
+
+  .navbar-button {
+    padding: 0.6rem 1.2rem;
+    font-size: 1rem; /* Mobil buton fontu büyütüldü */
+  }
 }

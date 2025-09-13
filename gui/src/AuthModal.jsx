@@ -43,10 +43,9 @@ const AuthModal = ({ isOpen, onClose, setIsLoggedIn }) => {
       console.log('Auth response:', res.data);  // Response debug
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('userId', res.data.user.id);
-      setIsLoggedIn(true);
+      setIsLoggedIn(true);  // State'i güncelle (reload olmadan)
       onClose();
-      alert('Başarılı! Sayfa yenileniyor...');
-      window.location.reload();  // Token sonrası reload (state güncelle)
+      alert('Başarılı giriş!');  // Başarı mesajı
     } catch (err) {
       console.log('Frontend auth error:', err.response?.data);  // Hata debug
       const msg = err.response?.data?.msg || 'Sunucu hatası';

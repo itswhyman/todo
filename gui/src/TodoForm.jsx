@@ -16,7 +16,7 @@ const TodoForm = ({ onAdd }) => {
       onAdd(res.data);
       setText('');
     } catch (err) {
-      alert('Error adding todo');
+      alert('Error adding todo: ' + err.message);
     }
   };
 

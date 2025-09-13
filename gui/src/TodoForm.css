@@ -1,24 +1,29 @@
 .todo-form {
   display: flex;
   margin-bottom: 1rem;
+  align-items: center;
 }
 
 .todo-form-input {
   flex: 1;
-  padding: 0.5rem;
+  padding: 0.75rem; /* Aynı yükseklik için padding artır */
   border: 1px solid #d1d5db;
-  border-top-left-radius: 0.25rem;
-  border-bottom-left-radius: 0.25rem;
+  border-radius: 0.25rem;
   font-size: 1rem;
+  height: 40px; /* Sabit yükseklik */
 }
 
 .todo-form-button {
   background-color: #2563eb;
   color: white;
-  padding: 0.5rem 1rem;
+  padding: 0.75rem 1rem;
   border: none;
-  border-top-right-radius: 0.25rem;
-  border-bottom-right-radius: 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 1rem;
+  height: 40px; /* Input ile aynı yükseklik */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .todo-form-button:hover {
