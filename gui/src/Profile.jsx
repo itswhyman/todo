@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import axios from 'axios';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUser, faPen, faGear } from '@fortawesome/free-solid-svg-icons';
+import { faUser, faPen, faGear, faLock } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'react-toastify';
 import { UserContext } from './context/UserContext';
 import './Profile.css';
@@ -15,22 +15,26 @@ const Profile = ({ setIsAuthModalOpen }) => {
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showBlockedModal, setShowBlockedModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [editData, setEditData] = useState({ username: '', password: '', profilePicture: '', file: null });
-  const [loading, setLoading] = useState(true); // Yeni loading state'i
+  const [editData, setEditData] = useState({ username: '', bio: '', profilePicture: '', file: null, preview: null });
+  const [passwordData, setPasswordData] = useState({ oldPassword: '', newPassword: '', confirmNewPassword: '' });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (currentUser) {
       setIsAdmin(currentUser.isAdmin || false);
       setEditData({
         username: currentUser.username,
-        password: '',
+        bio: currentUser.bio || '',
         profilePicture: currentUser.profilePicture || '',
         file: null,
+        preview: currentUser.profilePicture || null,
       });
       setLoading(false);
     } else {
-      setLoading(true); // currentUser null ise yükleniyor
+      setLoading(true);
     }
   }, [currentUser]);
 
@@ -141,7 +145,7 @@ const Profile = ({ setIsAuthModalOpen }) => {
       const decoded = JSON.parse(atob(token.split('.')[1]));
       const formData = new FormData();
       formData.append('username', editData.username);
-      if (editData.password) formData.append('password', editData.password);
+      formData.append('bio', editData.bio);
       if (editData.file) {
         if (!['image/jpeg', 'image/png', 'image/gif'].includes(editData.file.type)) {
           throw new Error('Sadece JPEG, PNG veya GIF dosyaları kabul edilir');
@@ -175,18 +179,59 @@ const Profile = ({ setIsAuthModalOpen }) => {
   const handleEditChange = (e) => {
     if (e.target.name === 'file') {
       const file = e.target.files[0];
-      if (file && !['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
-        toast.error('Sadece JPEG, PNG veya GIF dosyaları kabul edilir');
-        return;
+      if (file) {
+        if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
+          toast.error('Sadece JPEG, PNG veya GIF dosyaları kabul edilir');
+          return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error('Dosya boyutu 5MB\'dan büyük olamaz');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setEditData({ ...editData, file, profilePicture: '', preview: reader.result });
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setEditData({ ...editData, file: null, preview: currentUser.profilePicture || null });
       }
-      if (file && file.size > 5 * 1024 * 1024) {
-        toast.error('Dosya boyutu 5MB\'dan büyük olamaz');
-        return;
-      }
-      setEditData({ ...editData, file, profilePicture: '' });
     } else {
       setEditData({ ...editData, [e.target.name]: e.target.value, file: null });
     }
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    if (passwordData.newPassword !== passwordData.confirmNewPassword) {
+      toast.error('Yeni şifreler eşleşmiyor');
+      return;
+    }
+    try {
+      const token = localStorage.getItem('token');
+      const decoded = JSON.parse(atob(token.split('.')[1]));
+      console.log('Sending password change request:', {
+        oldPassword: passwordData.oldPassword,
+        newPassword: passwordData.newPassword,
+      });
+      await axios.put(`http://localhost:5500/api/user/${decoded.id}/password`, {
+        oldPassword: passwordData.oldPassword,
+        newPassword: passwordData.newPassword,
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success('Şifre başarıyla değiştirildi');
+      setPasswordData({ oldPassword: '', newPassword: '', confirmNewPassword: '' });
+      setShowPasswordModal(false);
+      setShowSettingsModal(true);
+    } catch (err) {
+      toast.error('Şifre değiştirme başarısız: ' + (err.response?.data?.msg || err.message));
+      console.error('Password change error:', err.response?.data || err);
+    }
+  };
+
+  const handlePasswordChangeInput = (e) => {
+    setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
   };
 
   if (loading) return <div className="profile-loading">Yükleniyor...</div>;
@@ -222,7 +267,7 @@ const Profile = ({ setIsAuthModalOpen }) => {
             <FontAwesomeIcon
               icon={faGear}
               className="profile-action-icon"
-              onClick={() => toast.info('Ayarlar yakında')}
+              onClick={() => setShowSettingsModal(true)}
               title="Ayarlar"
             />
           </div>
@@ -327,6 +372,27 @@ const Profile = ({ setIsAuthModalOpen }) => {
             <h2>Profil Düzenle</h2>
             <form onSubmit={handleUpdateProfile}>
               <div className="form-group">
+                <label>Profil Resmi:</label>
+                <input
+                  type="file"
+                  name="file"
+                  accept="image/jpeg,image/png,image/gif"
+                  onChange={handleEditChange}
+                />
+                <input
+                  type="url"
+                  name="profilePicture"
+                  value={editData.profilePicture}
+                  onChange={handleEditChange}
+                  placeholder="https://example.com/image.jpg"
+                />
+                {editData.preview && (
+                  <div className="profile-preview">
+                    <img src={editData.preview} alt="Preview" className="profile-preview-img" />
+                  </div>
+                )}
+              </div>
+              <div className="form-group">
                 <label>Kullanıcı Adı:</label>
                 <input
                   type="text"
@@ -337,34 +403,100 @@ const Profile = ({ setIsAuthModalOpen }) => {
                 />
               </div>
               <div className="form-group">
-                <label>Yeni Şifre (boş bırakırsan değişmez):</label>
+                <label>Bio:</label>
                 <input
-                  type="password"
-                  name="password"
-                  value={editData.password}
+                  type="text"
+                  name="bio"
+                  value={editData.bio}
                   onChange={handleEditChange}
-                  placeholder="Yeni şifre girin"
-                />
-              </div>
-              <div className="form-group">
-                <label>Profil Resmi URL (veya dosya seçin):</label>
-                <input
-                  type="url"
-                  name="profilePicture"
-                  value={editData.profilePicture}
-                  onChange={handleEditChange}
-                  placeholder="https://example.com/image.jpg"
-                />
-                <input
-                  type="file"
-                  name="file"
-                  accept="image/jpeg,image/png,image/gif"
-                  onChange={handleEditChange}
+                  placeholder="Bio metni girin"
                 />
               </div>
               <div className="modal-buttons">
                 <button type="submit">Kaydet</button>
                 <button type="button" onClick={() => setShowEditModal(false)}>
+                  İptal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showSettingsModal && (
+        <div className="modal-overlay" onClick={() => setShowSettingsModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Ayarlar</h2>
+            <div className="settings-options">
+              <button
+                className="user-profile-button user-profile-follow"
+                onClick={() => {
+                  setShowPasswordModal(true);
+                  setShowSettingsModal(false);
+                }}
+              >
+                Şifre Değiştir
+              </button>
+              <button
+                className="user-profile-button user-profile-message"
+                onClick={() => toast.info('Hesap ayarları yakında')}
+              >
+                Hesap Ayarları
+              </button>
+              <button
+                className="user-profile-button user-profile-block"
+                onClick={() => toast.info('Gizlilik ayarları yakında')}
+              >
+                Gizlilik
+              </button>
+            </div>
+            <div className="modal-buttons">
+              <button type="button" onClick={() => setShowSettingsModal(false)}>
+                Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPasswordModal && (
+        <div className="modal-overlay" onClick={() => setShowPasswordModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Şifre Değiştir</h2>
+            <form onSubmit={handlePasswordChange}>
+              <div className="form-group">
+                <label>Eski Şifre:</label>
+                <input
+                  type="password"
+                  name="oldPassword"
+                  value={passwordData.oldPassword}
+                  onChange={handlePasswordChangeInput}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Yeni Şifre:</label>
+                <input
+                  type="password"
+                  name="newPassword"
+                  value={passwordData.newPassword}
+                  onChange={handlePasswordChangeInput}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Yeni Şifreyi Onaylayın:</label>
+                <input
+                  type="password"
+                  name="confirmNewPassword"
+                  value={passwordData.confirmNewPassword}
+                  onChange={handlePasswordChangeInput}
+                  required
+                />
+              </div>
+              <div className="modal-buttons">
+                <button type="submit">Değiştir</button>
+                <button type="button" onClick={() => setShowPasswordModal(false)}>
                   İptal
                 </button>
               </div>

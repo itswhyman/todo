@@ -71,6 +71,7 @@
   cursor: pointer;
   color: #2563eb;
   font-size: 1.25rem;
+  transition: color 0.3s ease;
 }
 
 .profile-action-icon:hover {
@@ -89,15 +90,14 @@
   border-radius: 0.25rem;
   cursor: pointer;
   font-size: 0.9rem;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.3s ease, transform 0.2s ease;
 }
-.user-profile-button {
-  transition: background-color 0.3s, transform 0.2s;
-}
+
 .user-profile-button:hover {
   background-color: #007bff;
   transform: scale(1.05);
 }
+
 .user-profile-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -161,6 +161,7 @@
   border: none;
   border-radius: 0.25rem;
   cursor: pointer;
+  transition: background-color 0.3s ease;
 }
 
 .ban-user-button {
@@ -196,15 +197,18 @@
 
 .modal-content {
   background: white;
-  padding: 1.5rem;
-  border-radius: 0.25rem;
+  padding: 2rem; /* Artırılmış padding için daha ferah bir görünüm */
+  border-radius: 0.5rem; /* Daha yuvarlak köşeler */
   max-width: 500px;
   width: 100%;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Hafif gölge efekti */
 }
 
 .modal-content h2 {
-  font-size: 1.25rem;
-  margin-bottom: 1rem;
+  font-size: 1.5rem; /* Daha büyük başlık */
+  margin-bottom: 1.5rem;
+  color: #111827;
+  text-align: center;
 }
 
 .modal-content ul {
@@ -215,34 +219,50 @@
 }
 
 .modal-content li {
-  padding: 0.5rem 0;
+  padding: 0.75rem 0; /* Daha fazla padding */
   display: flex;
   justify-content: space-between;
   align-items: center;
+  border-bottom: 1px solid #e5e7eb; /* Liste öğeleri arasında ayırıcı */
 }
 
 .modal-content button {
-  padding: 0.25rem 0.5rem;
+  padding: 0.375rem 0.75rem; /* Daha dengeli buton boyutu */
   border: none;
   border-radius: 0.25rem;
   cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.modal-content button:hover {
+  transform: scale(1.05); /* Butonlar hover'da biraz büyüsün */
 }
 
 .form-group {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem; /* Form alanları arası daha fazla boşluk */
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.5rem;
+  color: #374151;
+  font-weight: 500;
 }
 
 .form-group input,
 .form-group textarea {
   width: 100%;
-  padding: 0.5rem;
+  padding: 0.75rem; /* Daha fazla iç padding */
   border: 1px solid #d1d5db;
-  border-radius: 0.25rem;
+  border-radius: 0.375rem; /* Daha yuvarlak köşeler */
+  font-size: 1rem;
+  transition: border-color 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  border-color: #2563eb; /* Odaklandığında mavi çerçeve */
+  outline: none;
 }
 
 .form-textarea {
@@ -252,15 +272,17 @@
 
 .modal-buttons {
   display: flex;
-  gap: 0.5rem;
+  gap: 1rem;
   justify-content: flex-end;
 }
 
 .modal-buttons button {
-  padding: 0.5rem 1rem;
+  padding: 0.75rem 1.5rem; /* Daha büyük butonlar */
   border: none;
-  border-radius: 0.25rem;
+  border-radius: 0.375rem;
   cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
 .modal-buttons button[type="submit"] {
@@ -270,6 +292,7 @@
 
 .modal-buttons button[type="submit"]:hover {
   background-color: #1e40af;
+  transform: scale(1.05);
 }
 
 .modal-buttons button[type="button"] {
@@ -279,4 +302,17 @@
 
 .modal-buttons button[type="button"]:hover {
   background-color: #4b5563;
+  transform: scale(1.05);
+}
+
+.profile-preview {
+  margin-top: 0.75rem; /* Daha fazla boşluk */
+}
+
+.profile-preview-img {
+  max-width: 100px;
+  max-height: 100px;
+  border-radius: 5px;
+  object-fit: cover;
+  border: 2px solid #e5e7eb; /* Hafif çerçeve */
 }

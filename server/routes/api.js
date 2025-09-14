@@ -8,11 +8,16 @@ import { dirname } from 'path';
 import User from '../models/User.js';
 import Todo from '../models/Todo.js';
 import Message from '../models/Message.js';
+import Notification from '../models/Notification.js';
+import mongoose from 'mongoose';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const router = express.Router();
+
+// Hata ayıklama için log
+console.log('API routes initialized');
 
 // Multer yapılandırması
 const storage = multer.diskStorage({
@@ -25,7 +30,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const filetypes = /jpeg|png|gif/;
     const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
@@ -64,389 +69,479 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
-// Signup
-router.post('/signup', async (req, res) => {
-  try {
-    const { username, email, password } = req.body;
-    if (!username || !email || !password) {
-      return res.status(400).json({ msg: 'Kullanıcı adı, email ve şifre gerekli' });
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) return res.status(400).json({ msg: 'Geçersiz email formatı' });
-    if (password.length < 6) return res.status(400).json({ msg: 'Şifre en az 6 karakter olmalı' });
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
-    if (existingUser) {
-      return res.status(400).json({ msg: 'Email veya kullanıcı adı zaten kullanılıyor' });
-    }
-    const user = new User({ username, email, password });
-    await user.save();
-    const token = jwt.sign({ id: user._id, isAdmin: user.isAdmin }, process.env.JWT_SECRET || 'secret');
-    res.json({ token, user: { id: user._id, username, email } });
-  } catch (err) {
-    console.error('Signup error:', err);
-    res.status(400).json({ msg: err.message || 'Kayıt sırasında hata oluştu' });
-  }
-});
-
-// Login
-router.post('/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ msg: 'Email ve şifre gerekli' });
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) return res.status(400).json({ msg: 'Geçersiz email formatı' });
-    const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ msg: 'Kullanıcı bulunamadı' });
-    if (user.isBanned) return res.status(403).json({ msg: 'Hesabınız banlanmış' });
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) return res.status(400).json({ msg: 'Şifre yanlış' });
-    const token = jwt.sign({ id: user._id, isAdmin: user.isAdmin }, process.env.JWT_SECRET || 'secret');
-    res.json({ token, user: { id: user._id, username: user.username, email } });
-  } catch (err) {
-    console.error('Login error:', err);
-    res.status(400).json({ msg: err.message || 'Giriş sırasında hata oluştu' });
-  }
-});
-
-// User Routes
-router.get('/user/:id', authMiddleware, async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id)
-      .select('-password')
-      .populate('todos')
-      .populate({
-        path: 'followers',
-        select: 'username',
-        match: { _id: { $nin: (await User.findById(req.userId)).blockedUsers || [] } },
-      })
-      .populate({
-        path: 'following',
-        select: 'username',
-        match: { _id: { $nin: (await User.findById(req.userId)).blockedUsers || [] } },
-      });
-    if (!user) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
-    const currentUser = await User.findById(req.userId);
-    res.json({
-      ...user.toJSON(), // Virtuals dahil edilir
-      blockedByCurrentUser: currentUser.blockedUsers?.some(b => b._id.equals(user._id)) || false,
-    });
-  } catch (err) {
-    console.error('Get user error:', err);
-    res.status(500).json({ msg: err.message || 'Kullanıcı bilgisi alınamadı' });
-  }
-});
-
-// Profil güncelleme
-router.put('/user/:id', [authMiddleware, upload.single('file')], async (req, res) => {
-  try {
-    if (req.userId !== req.params.id) {
-      return res.status(403).json({ msg: 'Kendi profilinizi güncelleyebilirsiniz' });
-    }
-    const { username, password, profilePicture, bio } = req.body;
-    const updateData = {};
-    if (username) {
-      if (username.length < 3) return res.status(400).json({ msg: 'Kullanıcı adı en az 3 karakter olmalı' });
-      updateData.username = username;
-    }
-    if (bio) updateData.bio = bio;
-    if (password) {
+// API rotaları
+export default function () { // wss parametresini kaldırdık, server.js'de global.wss kullanıyoruz
+  // Signup
+  router.post('/signup', async (req, res) => {
+    try {
+      const { username, email, password } = req.body;
+      if (!username || !email || !password) {
+        return res.status(400).json({ msg: 'Kullanıcı adı, email ve şifre gerekli' });
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) return res.status(400).json({ msg: 'Geçersiz email formatı' });
       if (password.length < 6) return res.status(400).json({ msg: 'Şifre en az 6 karakter olmalı' });
-      updateData.password = await bcrypt.hash(password, 10);
+      const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+      if (existingUser) {
+        return res.status(400).json({ msg: 'Email veya kullanıcı adı zaten kullanılıyor' });
+      }
+      const user = new User({ username, email, password });
+      await user.save();
+      const token = jwt.sign({ id: user._id, isAdmin: user.isAdmin }, process.env.JWT_SECRET || 'secret');
+      res.json({ token, user: { id: user._id.toString(), username, email } });
+    } catch (err) {
+      console.error('Signup error:', err);
+      res.status(400).json({ msg: err.message || 'Kayıt sırasında hata oluştu' });
     }
-    if (req.file) {
-      updateData.profilePicture = `http://localhost:5500/uploads/${req.file.filename}`;
-    } else if (profilePicture) {
-      const urlRegex = /^(https?:\/\/.*\.(?:png|jpg|jpeg|gif))$/i;
-      if (!urlRegex.test(profilePicture)) return res.status(400).json({ msg: 'Geçersiz profil resmi URL’si (PNG/JPEG/GIF olmalı)' });
-      updateData.profilePicture = profilePicture;
-    }
-    const updatedUser = await User.findByIdAndUpdate(req.params.id, updateData, {
-      new: true,
-      runValidators: true,
-    }).select('-password');
-    if (!updatedUser) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
-    res.json(updatedUser);
-  } catch (err) {
-    console.error('Profile update error:', err);
-    if (err.code === 11000) {
-      return res.status(400).json({ msg: 'Bu kullanıcı adı zaten kullanılıyor' });
-    }
-    if (err.message.includes('file')) {
-      return res.status(400).json({ msg: 'Geçersiz dosya formatı veya boyutu (max 5MB, JPEG/PNG/GIF)' });
-    }
-    res.status(500).json({ msg: err.message || 'Güncelleme sırasında hata oluştu' });
-  }
-});
+  });
 
-// Followers, Following, Blocked
-router.get('/user/:id/followers', authMiddleware, async (req, res) => {
+  // Login
+  router.post('/login', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) return res.status(400).json({ msg: 'Email ve şifre gerekli' });
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) return res.status(400).json({ msg: 'Geçersiz email formatı' });
+      const user = await User.findOne({ email });
+      if (!user) return res.status(400).json({ msg: 'Kullanıcı bulunamadı' });
+      if (user.isBanned) return res.status(403).json({ msg: 'Hesabınız banlanmış' });
+      const isMatch = await user.comparePassword(password);
+      if (!isMatch) return res.status(400).json({ msg: 'Şifre yanlış' });
+      const token = jwt.sign({ id: user._id, isAdmin: user.isAdmin }, process.env.JWT_SECRET || 'secret');
+      res.json({ token, user: { id: user._id.toString(), username: user.username, email } });
+    } catch (err) {
+      console.error('Login error:', err);
+      res.status(400).json({ msg: err.message || 'Giriş sırasında hata oluştu' });
+    }
+  });
+
+  // User Routes
+  router.get('/user/:id', authMiddleware, async (req, res) => {
+    try {
+      if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({ msg: 'Geçersiz kullanıcı ID' });
+      }
+      const user = await User.findById(req.params.id)
+        .select('-password')
+        .populate('todos')
+        .populate({
+          path: 'followers',
+          select: 'username',
+          match: { _id: { $nin: (await User.findById(req.userId)).blockedUsers || [] } },
+        })
+        .populate({
+          path: 'following',
+          select: 'username',
+          match: { _id: { $nin: (await User.findById(req.userId)).blockedUsers || [] } },
+        });
+      if (!user) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
+      const currentUser = await User.findById(req.userId);
+      res.json({
+        ...user.toJSON(),
+        blockedByCurrentUser: currentUser.blockedUsers?.some(b => b._id.equals(user._id)) || false,
+      });
+    } catch (err) {
+      console.error('Get user error:', err);
+      res.status(500).json({ msg: err.message || 'Kullanıcı bilgisi alınamadı' });
+    }
+  });
+
+  // Profil güncelleme (şifre hariç)
+  router.put('/user/:id', [authMiddleware, upload.single('file')], async (req, res) => {
+    try {
+      if (req.userId !== req.params.id) {
+        return res.status(403).json({ msg: 'Kendi profilinizi güncelleyebilirsiniz' });
+      }
+      const { username, bio, profilePicture } = req.body;
+      const updateData = {};
+      if (username) {
+        if (username.length < 3) return res.status(400).json({ msg: 'Kullanıcı adı en az 3 karakter olmalı' });
+        updateData.username = username;
+      }
+      if (bio) updateData.bio = bio;
+      if (req.file) {
+        updateData.profilePicture = `http://localhost:5500/uploads/${req.file.filename}`;
+      } else if (profilePicture) {
+        const urlRegex = /^(https?:\/\/.*\.(?:png|jpg|jpeg|gif))$/i;
+        if (!urlRegex.test(profilePicture)) return res.status(400).json({ msg: 'Geçersiz profil resmi URL’si (PNG/JPEG/GIF olmalı)' });
+        updateData.profilePicture = profilePicture;
+      }
+      const updatedUser = await User.findByIdAndUpdate(req.params.id, updateData, {
+        new: true,
+        runValidators: true,
+      }).select('-password');
+      if (!updatedUser) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
+      res.json(updatedUser);
+    } catch (err) {
+      console.error('Profile update error:', err);
+      if (err.code === 11000) {
+        return res.status(400).json({ msg: 'Bu kullanıcı adı zaten kullanılıyor' });
+      }
+      if (err.message.includes('file')) {
+        return res.status(400).json({ msg: 'Geçersiz dosya formatı veya boyutu (max 5MB, JPEG/PNG/GIF)' });
+      }
+      res.status(500).json({ msg: err.message || 'Güncelleme sırasında hata oluştu' });
+    }
+  });
+
+  // Şifre değiştirme
+  router.put('/user/:id/password', authMiddleware, async (req, res) => {
+    try {
+      if (req.userId !== req.params.id) {
+        return res.status(403).json({ msg: 'Kendi şifrenizi değiştirebilirsiniz' });
+      }
+      const { oldPassword, newPassword } = req.body;
+      if (!oldPassword || !newPassword) {
+        return res.status(400).json({ msg: 'Eski ve yeni şifre gerekli' });
+      }
+      const user = await User.findById(req.userId);
+      if (!user) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
+      const isMatch = await bcrypt.compare(oldPassword, user.password);
+      if (!isMatch) return res.status(400).json({ msg: 'Eski şifre yanlış' });
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(newPassword, salt);
+      await User.findByIdAndUpdate(req.userId, { password: hashedPassword });
+      res.json({ msg: 'Şifre başarıyla değiştirildi' });
+    } catch (err) {
+      console.error('Password update error:', err);
+      res.status(500).json({ msg: err.message || 'Şifre değiştirme başarısız' });
+    }
+  });
+
+  // Followers, Following, Blocked
+  router.get('/user/:id/followers', authMiddleware, async (req, res) => {
+    try {
+      const currentUser = await User.findById(req.userId);
+      const user = await User.findById(req.params.id).populate({
+        path: 'followers',
+        select: 'username email profilePicture',
+        match: { _id: { $nin: currentUser ? currentUser.blockedUsers : [] } },
+      });
+      if (!user) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
+      res.json(user.followers || []);
+    } catch (err) {
+      console.error('Get followers error:', err);
+      res.status(500).json({ msg: err.message || 'Takipçi bilgisi alınamadı' });
+    }
+  });
+
+  router.get('/user/:id/following', authMiddleware, async (req, res) => {
+    try {
+      const currentUser = await User.findById(req.userId);
+      const user = await User.findById(req.params.id).populate({
+        path: 'following',
+        select: 'username email profilePicture',
+        match: { _id: { $nin: currentUser ? currentUser.blockedUsers : [] } },
+      });
+      if (!user) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
+      res.json(user.following || []);
+    } catch (err) {
+      console.error('Get following error:', err);
+      res.status(500).json({ msg: err.message || 'Takip edilen bilgisi alınamadı' });
+    }
+  });
+
+  router.get('/user/:id/blocked', authMiddleware, async (req, res) => {
+    try {
+      const user = await User.findById(req.params.id).populate('blockedUsers', 'username email profilePicture');
+      if (!user) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
+      res.json(user.blockedUsers || []);
+    } catch (err) {
+      console.error('Get blocked users error:', err);
+      res.status(500).json({ msg: err.message || 'Engellenen kullanıcı bilgisi alınamadı' });
+    }
+  });
+
+  router.post('/user/:id/follow', authMiddleware, async (req, res) => {
+    try {
+      if (req.userId === req.params.id) return res.status(400).json({ msg: 'Kendinizi takip edemezsiniz' });
+      const userToFollow = await User.findById(req.params.id);
+      const currentUser = await User.findById(req.userId);
+      if (!userToFollow || !currentUser) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
+      if (currentUser.blockedUsers.includes(req.params.id)) {
+        return res.status(400).json({ msg: 'Engellediğiniz kullanıcıyı takip edemezsiniz' });
+      }
+      if (currentUser.following.includes(req.params.id)) {
+        return res.status(400).json({ msg: 'Zaten takip ediyorsunuz' });
+      }
+      currentUser.following.push(req.params.id);
+      currentUser.followingCount = (currentUser.followingCount || 0) + 1;
+      userToFollow.followers.push(req.userId);
+      userToFollow.followersCount = (userToFollow.followersCount || 0) + 1;
+      await currentUser.save();
+      await userToFollow.save();
+      res.json({ msg: 'Takip edildi' });
+    } catch (err) {
+      console.error('Follow error:', err);
+      res.status(500).json({ msg: err.message || 'Takip işlemi başarısız' });
+    }
+  });
+
+  router.post('/user/:id/unfollow', authMiddleware, async (req, res) => {
+    try {
+      if (req.userId === req.params.id) return res.status(400).json({ msg: 'Kendinizi takipten çıkaramazsınız' });
+      const userToUnfollow = await User.findById(req.params.id);
+      const currentUser = await User.findById(req.userId);
+      if (!userToUnfollow || !currentUser) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
+      if (!currentUser.following.includes(req.params.id)) {
+        return res.status(400).json({ msg: 'Zaten takip etmiyorsunuz' });
+      }
+      currentUser.following.pull(req.params.id);
+      userToUnfollow.followers.pull(req.userId);
+      currentUser.followingCount = Math.max(0, (currentUser.followingCount || 0) - 1);
+      userToUnfollow.followersCount = Math.max(0, (userToUnfollow.followersCount || 0) - 1);
+      await currentUser.save();
+      await userToUnfollow.save();
+      console.log(`Unfollow: ${currentUser.username} -> ${userToUnfollow.username}`);
+      console.log(`CurrentUser followingCount: ${currentUser.followingCount}, UserToUnfollow followersCount: ${userToUnfollow.followersCount}`);
+      res.json({ msg: 'Takip bırakıldı' });
+    } catch (err) {
+      console.error('Unfollow error:', err);
+      res.status(500).json({ msg: err.message || 'Takip bırakma başarısız' });
+    }
+  });
+
+  router.post('/user/:id/block', authMiddleware, async (req, res) => {
+    try {
+      if (req.userId === req.params.id) return res.status(400).json({ msg: 'Kendinizi engelleyemezsiniz' });
+      const userToBlock = await User.findById(req.params.id);
+      const currentUser = await User.findById(req.userId);
+      if (!userToBlock || !currentUser) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
+      if (currentUser.blockedUsers.includes(req.params.id)) {
+        return res.status(400).json({ msg: 'Kullanıcı zaten engellenmiş' });
+      }
+      currentUser.blockedUsers.push(req.params.id);
+      currentUser.following.pull(req.params.id);
+      userToBlock.followers.pull(req.userId);
+      currentUser.followingCount = Math.max(0, (currentUser.followingCount || 0) - 1);
+      userToBlock.followersCount = Math.max(0, (userToBlock.followersCount || 0) - 1);
+      await currentUser.save();
+      await userToBlock.save();
+      console.log(`Block: ${currentUser.username} -> ${userToBlock.username}`);
+      console.log(`CurrentUser followingCount: ${currentUser.followingCount}, UserToBlock followersCount: ${userToBlock.followersCount}`);
+      res.json({ msg: 'Kullanıcı engellendi' });
+    } catch (err) {
+      console.error('Block error:', err);
+      res.status(500).json({ msg: err.message || 'Engelleme başarısız' });
+    }
+  });
+
+  router.post('/user/:id/unblock', authMiddleware, async (req, res) => {
+    try {
+      if (req.userId === req.params.id) return res.status(400).json({ msg: 'Kendinizi engelini kaldıramazsınız' });
+      const userToUnblock = await User.findById(req.params.id);
+      const currentUser = await User.findById(req.userId);
+      if (!userToUnblock || !currentUser) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
+      if (!currentUser.blockedUsers.includes(req.params.id)) {
+        return res.status(400).json({ msg: 'Kullanıcı engellenmemiş' });
+      }
+      currentUser.blockedUsers.pull(req.params.id);
+      await currentUser.save();
+      res.json({ msg: 'Engel kaldırıldı' });
+    } catch (err) {
+      console.error('Unblock error:', err);
+      res.status(500).json({ msg: err.message || 'Engel kaldırma başarısız' });
+    }
+  });
+
+  router.post('/user/:id/ban', [authMiddleware, adminMiddleware], async (req, res) => {
+    try {
+      if (req.userId === req.params.id) return res.status(400).json({ msg: 'Kendinizi banlayamazsınız' });
+      const userToBan = await User.findById(req.params.id);
+      if (!userToBan) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
+      if (userToBan.isBanned) return res.status(400).json({ msg: 'Kullanıcı zaten banlı' });
+      userToBan.isBanned = true;
+      await userToBan.save();
+      res.json({ msg: 'Kullanıcı banlandı' });
+    } catch (err) {
+      console.error('Ban error:', err);
+      res.status(500).json({ msg: err.message || 'Banlama başarısız' });
+    }
+  });
+
+  router.post('/user/:id/unban', [authMiddleware, adminMiddleware], async (req, res) => {
+    try {
+      if (req.userId === req.params.id) return res.status(400).json({ msg: 'Kendi banınızı kaldıramazsınız' });
+      const userToUnban = await User.findById(req.params.id);
+      if (!userToUnban) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
+      if (!userToUnban.isBanned) return res.status(400).json({ msg: 'Kullanıcı banlı değil' });
+      userToUnban.isBanned = false;
+      await userToUnban.save();
+      res.json({ msg: 'Ban kaldırıldı' });
+    } catch (err) {
+      console.error('Unban error:', err);
+      res.status(500).json({ msg: err.message || 'Ban kaldırma başarısız' });
+    }
+  });
+
+  // Todos
+  router.get('/todos', authMiddleware, async (req, res) => {
+    try {
+      let query = { user: req.user.id };
+      if (req.query.date) {
+        const date = new Date(req.query.date);
+        date.setUTCHours(date.getUTCHours() + 3);
+        const startOfDay = new Date(date.setHours(0, 0, 0, 0));
+        const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+        query.date = { $gte: startOfDay, $lte: endOfDay };
+        console.log('Adjusted date filter:', { startOfDay, endOfDay });
+      }
+      console.log('Query:', query);
+      const todos = await Todo.find(query);
+      res.json(todos);
+    } catch (err) {
+      console.error('Get todos error:', err);
+      res.status(500).json({ msg: err.message || 'Todo bilgisi alınamadı' });
+    }
+  });
+
+  router.post('/todos', authMiddleware, async (req, res) => {
+    try {
+      const { text, date } = req.body;
+      if (!text) return res.status(400).json({ msg: 'Todo metni gerekli' });
+      const todo = new Todo({
+        text,
+        date: date ? new Date(date) : new Date(),
+        user: req.user.id,
+      });
+      await todo.save();
+      res.json(todo);
+    } catch (err) {
+      console.error('Create todo error:', err);
+      res.status(500).json({ msg: err.message || 'Todo oluşturma başarısız' });
+    }
+  });
+
+  router.put('/todos/:id', authMiddleware, async (req, res) => {
+    try {
+      const { completed } = req.body;
+      if (typeof completed !== 'boolean') return res.status(400).json({ msg: 'Completed boolean olmalı' });
+      const todo = await Todo.findOneAndUpdate(
+        { _id: req.params.id, user: req.user.id },
+        { completed },
+        { new: true }
+      );
+      if (!todo) return res.status(404).json({ msg: 'Todo bulunamadı' });
+      res.json(todo);
+    } catch (err) {
+      console.error('Update todo error:', err);
+      res.status(500).json({ msg: err.message || 'Todo güncelleme başarısız' });
+    }
+  });
+
+  router.delete('/todos/:id', authMiddleware, async (req, res) => {
+    try {
+      await Todo.findOneAndDelete({ _id: req.params.id, user: req.user.id });
+      res.json({ msg: 'Deleted' });
+    } catch (err) {
+      console.error('Delete todo error:', err);
+      res.status(500).json({ msg: err.message || 'Todo silme başarısız' });
+    }
+  });
+
+  // Messages
+  router.get('/messages', authMiddleware, async (req, res) => {
+    try {
+      const messages = await Message.find({
+        $or: [
+          { sender: req.user.id, receiver: { $ne: req.user.id }, isDeleted: { $ne: true } },
+          { receiver: req.user.id, isDeleted: { $ne: true } },
+        ],
+      })
+        .populate('sender receiver', 'username profilePicture')
+        .sort({ timestamp: 1 });
+      res.json(messages);
+    } catch (err) {
+      console.error('Get messages error:', err);
+      res.status(500).json({ msg: err.message || 'Mesaj bilgisi alınamadı' });
+    }
+  });
+
+  router.post('/messages', authMiddleware, async (req, res) => {
+    try {
+      const { text, receiver } = req.body;
+      if (!text || !receiver) return res.status(400).json({ msg: 'Mesaj ve alıcı gerekli' });
+      if (!mongoose.Types.ObjectId.isValid(receiver)) {
+        return res.status(400).json({ msg: 'Geçersiz alıcı ID' });
+      }
+      const receiverUser = await User.findById(receiver);
+      if (!receiverUser) return res.status(404).json({ msg: 'Alıcı kullanıcı bulunamadı' });
+      if (receiverUser.isBanned) return res.status(403).json({ msg: 'Alıcı kullanıcı banlı' });
+      const currentUser = await User.findById(req.userId);
+      if (currentUser.blockedUsers.includes(receiver)) {
+        return res.status(403).json({ msg: 'Engellenen bir kullanıcıya mesaj gönderilemez' });
+      }
+      const message = new Message({ text, sender: req.user.id, receiver });
+      await message.save();
+      const populatedMessage = await Message.findById(message._id).populate('sender receiver', 'username profilePicture');
+      // WebSocket ile mesajı gönder
+      console.log('Sending WebSocket message to:', { sender: req.user.id.toString(), receiver });
+      global.wss.clients.forEach(client => {
+        if (
+          client.readyState === WebSocket.OPEN &&
+          (client.userId === req.user.id.toString() || client.userId === receiver)
+        ) {
+          console.log(`Sending message to userId: ${client.userId}`);
+          client.send(JSON.stringify({ type: 'newMessage', message: populatedMessage }));
+        }
+      });
+      res.status(201).json(populatedMessage);
+    } catch (err) {
+      console.error('Create message error:', err);
+      res.status(500).json({ msg: err.message || 'Mesaj oluşturma başarısız' });
+    }
+  });
+
+// Notifications
+router.post('/notifications', authMiddleware, async (req, res) => {
+  console.log('Notifications endpoint called:', req.body);
   try {
-    const currentUser = await User.findById(req.userId);
-    const user = await User.findById(req.params.id).populate({
-      path: 'followers',
-      select: 'username email profilePicture',
-      match: { _id: { $nin: currentUser ? currentUser.blockedUsers : [] } },
-    });
+    const { userId, message } = req.body;
+    if (!userId || !message) return res.status(400).json({ msg: 'Kullanıcı ID ve mesaj gerekli' });
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ msg: 'Geçersiz kullanıcı ID' });
+    }
+    const user = await User.findById(userId);
     if (!user) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
-    res.json(user.followers || []);
-  } catch (err) {
-    console.error('Get followers error:', err);
-    res.status(500).json({ msg: err.message || 'Takipçi bilgisi alınamadı' });
-  }
-});
-
-router.get('/user/:id/following', authMiddleware, async (req, res) => {
-  try {
-    const currentUser = await User.findById(req.userId);
-    const user = await User.findById(req.params.id).populate({
-      path: 'following',
-      select: 'username email profilePicture',
-      match: { _id: { $nin: currentUser ? currentUser.blockedUsers : [] } },
+    const notification = new Notification({ userId, message });
+    await notification.save();
+    const populatedNotification = await Notification.findById(notification._id).lean();
+    // WebSocket ile bildirimi gönder
+    console.log('Sending WebSocket notification to:', userId);
+    global.wss.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN && client.userId === userId) {
+        console.log(`Sending notification to userId: ${client.userId}`);
+        client.send(JSON.stringify({ type: 'newNotification', notification: populatedNotification }));
+      }
     });
-    if (!user) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
-    res.json(user.following || []);
+    res.status(201).json(populatedNotification);
   } catch (err) {
-    console.error('Get following error:', err);
-    res.status(500).json({ msg: err.message || 'Takip edilen bilgisi alınamadı' });
+    console.error('Create notification error:', err);
+    res.status(500).json({ msg: err.message || 'Bildirim oluşturma başarısız' });
   }
 });
 
-router.get('/user/:id/blocked', authMiddleware, async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id).populate('blockedUsers', 'username email profilePicture');
-    if (!user) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
-    res.json(user.blockedUsers || []);
-  } catch (err) {
-    console.error('Get blocked users error:', err);
-    res.status(500).json({ msg: err.message || 'Engellenen kullanıcı bilgisi alınamadı' });
-  }
-});
-
-// Follow / Unfollow / Block / Unblock / Ban / Unban
-router.post('/user/:id/follow', authMiddleware, async (req, res) => {
-  try {
-    if (req.userId === req.params.id) return res.status(400).json({ msg: 'Kendinizi takip edemezsiniz' });
-    const userToFollow = await User.findById(req.params.id);
-    const currentUser = await User.findById(req.userId);
-    if (!userToFollow || !currentUser) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
-    if (currentUser.blockedUsers.includes(req.params.id)) {
-      return res.status(400).json({ msg: 'Engellediğiniz kullanıcıyı takip edemezsiniz' });
+  // User Search
+  router.get('/users', authMiddleware, async (req, res) => {
+    try {
+      const { q } = req.query;
+      if (!q) return res.status(400).json({ msg: 'Arama terimi gerekli' });
+      const escapedQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escapedQ, 'i');
+      const currentUser = await User.findById(req.userId);
+      const users = await User.find({
+        username: regex,
+        _id: { $ne: req.userId, $nin: currentUser.blockedUsers || [] },
+      })
+        .select('username email profilePicture')
+        .collation({ locale: 'tr', strength: 1 })
+        .lean();
+      res.json(users || []);
+    } catch (err) {
+      console.error('Search users error:', err);
+      res.status(500).json({ msg: err.message || 'Kullanıcı arama başarısız' });
     }
-    if (currentUser.following.includes(req.params.id)) {
-      return res.status(400).json({ msg: 'Zaten takip ediyorsunuz' });
-    }
-    currentUser.following.push(req.params.id);
-    currentUser.followingCount = (currentUser.followingCount || 0) + 1;
-    userToFollow.followers.push(req.userId);
-    userToFollow.followersCount = (userToFollow.followersCount || 0) + 1;
-    await currentUser.save();
-    await userToFollow.save();
-    res.json({ msg: 'Takip edildi' });
-  } catch (err) {
-    console.error('Follow error:', err);
-    res.status(500).json({ msg: err.message || 'Takip işlemi başarısız' });
-  }
-});
+  });
 
-router.post('/user/:id/unfollow', authMiddleware, async (req, res) => {
-  try {
-    if (req.userId === req.params.id) return res.status(400).json({ msg: 'Kendinizi takipten çıkaramazsınız' });
-    const userToUnfollow = await User.findById(req.params.id);
-    const currentUser = await User.findById(req.userId);
-    if (!userToUnfollow || !currentUser) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
-    if (!currentUser.following.includes(req.params.id)) {
-      return res.status(400).json({ msg: 'Zaten takip etmiyorsunuz' });
-    }
-    currentUser.following.pull(req.params.id);
-    currentUser.followingCount = (currentUser.followingCount || 0) - 1;
-    userToUnfollow.followers.pull(req.userId);
-    userToUnfollow.followersCount = (userToUnfollow.followersCount || 0) - 1;
-    await currentUser.save();
-    await userToUnfollow.save();
-    res.json({ msg: 'Takip bırakıldı' });
-  } catch (err) {
-    console.error('Unfollow error:', err);
-    res.status(500).json({ msg: err.message || 'Takip bırakma başarısız' });
-  }
-});
-
-router.post('/user/:id/block', authMiddleware, async (req, res) => {
-  try {
-    if (req.userId === req.params.id) return res.status(400).json({ msg: 'Kendinizi engelleyemezsiniz' });
-    const userToBlock = await User.findById(req.params.id);
-    const currentUser = await User.findById(req.userId);
-    if (!userToBlock || !currentUser) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
-    if (currentUser.blockedUsers.includes(req.params.id)) {
-      return res.status(400).json({ msg: 'Kullanıcı zaten engellenmiş' });
-    }
-    currentUser.blockedUsers.push(req.params.id);
-    currentUser.following.pull(req.params.id);
-    userToBlock.followers.pull(req.userId);
-    currentUser.followingCount = (currentUser.followingCount || 0) - 1;
-    userToBlock.followersCount = (userToBlock.followersCount || 0) - 1;
-    await currentUser.save();
-    await userToBlock.save();
-    res.json({ msg: 'Kullanıcı engellendi' });
-  } catch (err) {
-    console.error('Block error:', err);
-    res.status(500).json({ msg: err.message || 'Engelleme başarısız' });
-  }
-});
-
-router.post('/user/:id/unblock', authMiddleware, async (req, res) => {
-  try {
-    if (req.userId === req.params.id) return res.status(400).json({ msg: 'Kendinizi engelini kaldıramazsınız' });
-    const userToUnblock = await User.findById(req.params.id);
-    const currentUser = await User.findById(req.userId);
-    if (!userToUnblock || !currentUser) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
-    if (!currentUser.blockedUsers.includes(req.params.id)) {
-      return res.status(400).json({ msg: 'Kullanıcı engellenmemiş' });
-    }
-    currentUser.blockedUsers.pull(req.params.id);
-    await currentUser.save();
-    res.json({ msg: 'Engel kaldırıldı' });
-  } catch (err) {
-    console.error('Unblock error:', err);
-    res.status(500).json({ msg: err.message || 'Engel kaldırma başarısız' });
-  }
-});
-
-router.post('/user/:id/ban', [authMiddleware, adminMiddleware], async (req, res) => {
-  try {
-    if (req.userId === req.params.id) return res.status(400).json({ msg: 'Kendinizi banlayamazsınız' });
-    const userToBan = await User.findById(req.params.id);
-    if (!userToBan) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
-    if (userToBan.isBanned) return res.status(400).json({ msg: 'Kullanıcı zaten banlı' });
-    userToBan.isBanned = true;
-    await userToBan.save();
-    res.json({ msg: 'Kullanıcı banlandı' });
-  } catch (err) {
-    console.error('Ban error:', err);
-    res.status(500).json({ msg: err.message || 'Banlama başarısız' });
-  }
-});
-
-router.post('/user/:id/unban', [authMiddleware, adminMiddleware], async (req, res) => {
-  try {
-    if (req.userId === req.params.id) return res.status(400).json({ msg: 'Kendi banınızı kaldıramazsınız' });
-    const userToUnban = await User.findById(req.params.id);
-    if (!userToUnban) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
-    if (!userToUnban.isBanned) return res.status(400).json({ msg: 'Kullanıcı banlı değil' });
-    userToUnban.isBanned = false;
-    await userToUnban.save();
-    res.json({ msg: 'Ban kaldırıldı' });
-  } catch (err) {
-    console.error('Unban error:', err);
-    res.status(500).json({ msg: err.message || 'Ban kaldırma başarısız' });
-  }
-});
-
-// Todos
-router.get('/todos', authMiddleware, async (req, res) => {
-  try {
-    let query = { user: req.user.id };
-    if (req.query.date) {
-      query.date = new Date(req.query.date);
-      query.date.setHours(0, 0, 0, 0);
-    }
-    const todos = await Todo.find(query);
-    res.json(todos);
-  } catch (err) {
-    console.error('Get todos error:', err);
-    res.status(500).json({ msg: err.message || 'Todo bilgisi alınamadı' });
-  }
-});
-
-router.post('/todos', authMiddleware, async (req, res) => {
-  try {
-    const { text, date } = req.body;
-    if (!text) return res.status(400).json({ msg: 'Todo metni gerekli' });
-    const todo = new Todo({
-      text,
-      date: date ? new Date(date) : new Date(),
-      user: req.user.id,
-    });
-    await todo.save();
-    res.json(todo);
-  } catch (err) {
-    console.error('Create todo error:', err);
-    res.status(500).json({ msg: err.message || 'Todo oluşturma başarısız' });
-  }
-});
-
-router.put('/todos/:id', authMiddleware, async (req, res) => {
-  try {
-    const { completed } = req.body;
-    if (typeof completed !== 'boolean') return res.status(400).json({ msg: 'Completed boolean olmalı' });
-    const todo = await Todo.findOneAndUpdate(
-      { _id: req.params.id, user: req.user.id },
-      { completed },
-      { new: true }
-    );
-    if (!todo) return res.status(404).json({ msg: 'Todo bulunamadı' });
-    res.json(todo);
-  } catch (err) {
-    console.error('Update todo error:', err);
-    res.status(500).json({ msg: err.message || 'Todo güncelleme başarısız' });
-  }
-});
-
-router.delete('/todos/:id', authMiddleware, async (req, res) => {
-  try {
-    await Todo.findOneAndDelete({ _id: req.params.id, user: req.user.id });
-    res.json({ msg: 'Deleted' });
-  } catch (err) {
-    console.error('Delete todo error:', err);
-    res.status(500).json({ msg: err.message || 'Todo silme başarısız' });
-  }
-});
-
-// Messages
-router.get('/messages', authMiddleware, async (req, res) => {
-  try {
-    const messages = await Message.find({
-      $or: [{ sender: req.user.id }, { receiver: req.user.id }],
-    }).populate('sender receiver', 'username');
-    res.json(messages);
-  } catch (err) {
-    console.error('Get messages error:', err);
-    res.status(500).json({ msg: err.message || 'Mesaj bilgisi alınamadı' });
-  }
-});
-
-router.post('/messages', authMiddleware, async (req, res) => {
-  try {
-    const { text, receiver } = req.body;
-    if (!text || !receiver) return res.status(400).json({ msg: 'Mesaj ve alıcı gerekli' });
-    const message = new Message({ text, sender: req.user.id, receiver });
-    await message.save();
-    res.json(message);
-  } catch (err) {
-    console.error('Create message error:', err);
-    res.status(500).json({ msg: err.message || 'Mesaj oluşturma başarısız' });
-  }
-});
-
-// User Search
-router.get('/users', authMiddleware, async (req, res) => {
-  try {
-    const { q } = req.query;
-    if (!q) return res.status(400).json({ msg: 'Arama terimi gerekli' });
-
-    // Regex'i güvenli hale getir: ^ ile baş harfi, /i case-insensitive
-    const escapedQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Özel karakterleri escape et
-    const regex = new RegExp('^' + escapedQ, 'i');
-
-    const users = await User.find({ username: regex })
-      .select('username email profilePicture')
-      .collation({ locale: 'tr', strength: 1 }) // Türkçe case-insensitive: 'e' = 'E', strength 1 primary match
-      .lean(); // Plain objects: Serialization bug'unu atlar
-
-    res.json(users || []);
-  } catch (err) {
-    console.error('Search users error:', err);
-    res.status(500).json({ msg: err.message || 'Kullanıcı arama başarısız' });
-  }
-});
-
-export default router;
+  return router;
+}

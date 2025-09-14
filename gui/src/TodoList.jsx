@@ -7,7 +7,7 @@ import './TodoList.css';
 const TodoList = () => {
   const [todos, setTodos] = useState([]);
   const [showLoginAlert, setShowLoginAlert] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(new Date()); // Varsayılan olarak bugünün tarihi
 
   useEffect(() => {
     fetchTodos();
@@ -23,7 +23,9 @@ const TodoList = () => {
         }
         return;
       }
-      const params = selectedDate ? { date: selectedDate.toISOString() } : {};
+      const dateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : '';
+      const params = selectedDate ? { date: dateStr } : {};
+      console.log('Fetching todos with params:', params); // Hata ayıklama
       const res = await axios.get('http://localhost:5500/api/todos', {
         headers: { Authorization: `Bearer ${token}` },
         params,
@@ -48,6 +50,7 @@ const TodoList = () => {
       <div className="todo-date-filter-container">
         <input
           type="date"
+          value={selectedDate ? selectedDate.toISOString().split('T')[0] : ''}
           onChange={(e) => {
             const date = e.target.value ? new Date(e.target.value) : null;
             setSelectedDate(date);

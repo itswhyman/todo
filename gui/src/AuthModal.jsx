@@ -2,6 +2,7 @@ import React, { useState, useContext } from 'react';
 import Modal from 'react-modal';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom'; // Yönlendirme için eklendi
 import { UserContext } from './context/UserContext';
 import './AuthModal.css';
 
@@ -12,6 +13,7 @@ const AuthModal = ({ isOpen, onClose, setIsLoggedIn }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({ username: '', email: '', password: '' });
   const [error, setError] = useState('');
+  const navigate = useNavigate(); // Yönlendirme için
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -42,18 +44,22 @@ const AuthModal = ({ isOpen, onClose, setIsLoggedIn }) => {
       const submitData = isLogin
         ? { email: formData.email, password: formData.password }
         : { username: formData.username, email: formData.email, password: formData.password };
-      console.log('Frontend submit data:', submitData); // Frontend debug
+      console.log('Frontend submit data:', submitData); // Debug
       const endpoint = isLogin ? '/login' : '/signup';
       const res = await axios.post(`http://localhost:5500/api${endpoint}`, submitData, {
         headers: { 'Content-Type': 'application/json' },
       });
-      console.log('Auth response:', res.data); // Response debug
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('userId', res.data.user.id);
+      console.log('Auth response data:', res.data); // Debug response
+      const { token, user } = res.data;
+      if (!token || !user.id) throw new Error('Geçersiz yanıt, token veya userId eksik');
+      localStorage.setItem('token', token);
+      localStorage.setItem('userId', user.id); // Sadece id string'ini sakla
+      console.log('Stored userId:', user.id); // Saklanan userId'yi logla
       await fetchCurrentUser();
       setIsLoggedIn(true);
       onClose();
       toast.success(isLogin ? 'Başarılı giriş!' : 'Başarılı kayıt!');
+      navigate('/'); // Giriş veya kayıt sonrası ana sayfaya yönlendir
     } catch (err) {
       console.log('Frontend auth error:', err.response?.data); // Hata debug
       const msg = err.response?.data?.msg || 'Sunucu hatası';
