@@ -5,7 +5,6 @@
   margin-right: auto;
 }
 
-/* Mesajlar başlığı: Büyük, kalın ve merkezde */
 .messages-title {
   font-size: 1.875rem;
   font-weight: 700;
@@ -14,33 +13,35 @@
   color: #1f2937;
 }
 
-/* Arama çubuğu container'ı: Esnek düzen, boşluklu */
+.messages-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
 .messages-search {
   display: flex;
   gap: 0.5rem;
-  margin-bottom: 1rem;
   justify-content: center;
 }
 
-/* Arama input alanı: Geniş, yuvarlak köşeli, odaklanınca efektli */
 .messages-search-input {
   flex-grow: 1;
   padding: 0.75rem;
   border: 1px solid #d1d5db;
-  border-radius: 0.5rem; /* Daha yumuşak köşeler */
+  border-radius: 0.5rem;
   font-size: 1rem;
   max-width: 300px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Arama input'u odaklandığında: Mavi border ve gölge */
 .messages-search-input:focus {
   outline: none;
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-/* Arama butonu: Mavi, yuvarlak, hover efektli */
 .messages-search-button {
   background-color: #2563eb;
   color: white;
@@ -52,13 +53,32 @@
   transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
-/* Arama butonu hover: Daha koyu mavi ve hafif ölçeklenme */
 .messages-search-button:hover {
   background-color: #1e40af;
   transform: scale(1.02);
 }
 
-/* Kullanıcı listesi container'ı: Gri arka plan, gölgeli, kaydırılabilir */
+.toggle-button {
+  background-color: #2563eb;
+  color: white;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.toggle-button:disabled {
+  background-color: #6b7280;
+}
+
+.toggle-button:hover {
+  background-color: #1e40af;
+  transform: scale(1.02);
+}
+
 .users-list {
   background: #f9fafb;
   padding: 1rem;
@@ -68,7 +88,6 @@
   overflow-y: auto;
 }
 
-/* Kullanıcı öğesi: Esnek düzen, tıklanabilir, hover efektli */
 .user-item {
   display: flex;
   align-items: center;
@@ -79,13 +98,18 @@
   transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
-/* Kullanıcı öğesi hover: Hafif gri arka plan ve ölçeklenme */
 .user-item:hover {
   background-color: #e5e7eb;
   transform: scale(1.01);
 }
 
-/* Kullanıcı avatarı: Yuvarlak, borderlı, sabit boyut */
+.user-item-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  position: relative;
+}
+
 .user-avatar {
   width: 40px;
   height: 40px;
@@ -95,14 +119,34 @@
   border: 1px solid #e5e7eb;
 }
 
-/* Kullanıcı adı: Orta boy, kalın */
 .user-name {
   font-size: 1rem;
   font-weight: 500;
   color: #1f2937;
 }
 
-/* Kullanıcı bulunamadı mesajı: Merkezde, italik */
+.unread-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  background-color: #ef4444;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.unread-badge:hover {
+  transform: scale(1.1);
+}
+
 .user-search-no-results {
   text-align: center;
   color: #6b7280;
@@ -110,7 +154,6 @@
   font-style: italic;
 }
 
-/* Sohbet alanı container'ı: Beyaz, gölgeli, borderlı */
 .chat-area {
   background: white;
   padding: 1.5rem;
@@ -122,13 +165,11 @@
   border: 1px solid #e5e7eb;
 }
 
-/* Sohbet alanı tam ekran: Sabit genişlik */
 .chat-area.full-screen {
   width: 100%;
   max-width: 800px;
 }
 
-/* Sohbet başlığı container'ı: Esnek düzen, alt borderlı */
 .chat-header {
   display: flex;
   align-items: center;
@@ -137,7 +178,6 @@
   border-bottom: 1px solid #e5e7eb;
 }
 
-/* Geri butonu: Yuvarlak, mavi ikon, hover efektli */
 .back-button {
   background-color: #e5e7eb;
   color: #2563eb;
@@ -154,13 +194,11 @@
   transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
-/* Geri butonu hover: Daha koyu gri ve hafif ölçeklenme */
 .back-button:hover {
   background-color: #d1d5db;
   transform: scale(1.1);
 }
 
-/* Sohbet başlığı: Kalın, büyük, koyu renk */
 .chat-title {
   font-size: 1.25rem;
   font-weight: 700;
@@ -168,7 +206,6 @@
   color: #1f2937;
 }
 
-/* Mesaj listesi: Esnek, kaydırılabilir, noktalar kaldırılmış */
 .messages-list {
   flex-grow: 1;
   overflow-y: auto;
@@ -180,60 +217,52 @@
   list-style: none;
 }
 
-/* Mesaj listesi scrollbar gizleme: Chrome, Safari */
 .messages-list::-webkit-scrollbar {
   display: none;
 }
 
-/* Mesaj listesi scrollbar gizleme: Firefox, IE */
 .messages-list {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
 
-/* Mesaj öğesi: Yuvarlak, gölgeli, geniş, zarif, hover efektli */
 .message-item {
   padding: 1rem 1.5rem;
-  border-radius: 1.2rem; /* Daha yumuşak köşeler */
+  border-radius: 1.2rem;
   max-width: 80%;
   position: relative;
-  border: 1px solid rgba(209, 213, 219, 0.4); /* İnce, şeffaf border */
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06); /* Hafif gölge */
-  background: linear-gradient(145deg, #ffffff, #eff6ff); /* Daha modern beyaz-mavi gradient */
+  border: 1px solid rgba(209, 213, 219, 0.4);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
+  background: linear-gradient(145deg, #ffffff, #eff6ff);
   word-break: break-word;
   white-space: normal;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Mesaj öğesi hover: Hafif ölçeklenme ve gölge artışı */
 .message-item:hover {
   transform: scale(1.01);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
-/* Gönderilen mesaj: Mavi gradient, sağa hizalı */
 .message-item-sent {
-  background: linear-gradient(145deg, #dbeafe, #bfdbfe); /* Daha zarif mavi tonlar */
+  background: linear-gradient(145deg, #dbeafe, #bfdbfe);
   margin-left: auto;
   align-self: flex-end;
   border-color: rgba(147, 197, 253, 0.4);
 }
 
-/* Alınan mesaj: Gri gradient, sola hizalı */
 .message-item-received {
-  background: linear-gradient(145deg, #f3f4f6, #e5e7eb); /* Daha zarif gri tonlar */
+  background: linear-gradient(145deg, #f3f4f6, #e5e7eb);
   align-self: flex-start;
   border-color: rgba(209, 213, 219, 0.4);
 }
 
-/* Mesaj içeriği: Temiz, okunabilir, biraz daha büyük */
 .message-content {
   font-size: 1.05rem;
   color: #111827;
   line-height: 1.5;
 }
 
-/* Mesaj zamanı: Küçük, italik, sağda */
 .message-time {
   font-size: 0.7rem;
   color: #6b7280;
@@ -243,7 +272,15 @@
   font-style: italic;
 }
 
-/* Mesaj gönderme formu: Esnek, üst borderlı */
+.message-status {
+  font-size: 0.7rem;
+  color: #6b7280;
+  display: block;
+  text-align: right;
+  margin-top: 0.25rem;
+  font-style: italic;
+}
+
 .messages-form {
   display: flex;
   gap: 0.5rem;
@@ -252,7 +289,6 @@
   border-top: 1px solid #e5e7eb;
 }
 
-/* Mesaj input alanı: Geniş, yuvarlak, odaklanınca efektli */
 .messages-input {
   flex-grow: 1;
   padding: 0.75rem;
@@ -262,14 +298,12 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Mesaj input'u odaklandığında: Mavi border ve gölge */
 .messages-input:focus {
   outline: none;
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-/* Gönder butonu: Mavi, yuvarlak, hover efektli */
 .messages-button {
   background-color: #2563eb;
   color: white;
@@ -280,8 +314,83 @@
   transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
-/* Gönder butonu hover: Daha koyu mavi ve hafif ölçeklenme */
 .messages-button:hover {
   background-color: #1e40af;
   transform: scale(1.02);
+}
+
+@media (max-width: 768px) {
+  .messages {
+    margin-top: 1rem;
+    padding: 0 1rem;
+  }
+
+  .messages-title {
+    font-size: 1.5rem;
+  }
+
+  .messages-header {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .messages-search {
+    width: 100%;
+  }
+
+  .messages-search-input {
+    max-width: 100%;
+  }
+
+  .toggle-button {
+    width: 100%;
+    text-align: center;
+  }
+
+  .user-avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .user-name {
+    font-size: 0.9rem;
+  }
+
+  .unread-badge {
+    width: 16px;
+    height: 16px;
+    font-size: 0.7rem;
+    top: -4px;
+    right: -6px;
+  }
+
+  .chat-area {
+    padding: 1rem;
+  }
+
+  .chat-title {
+    font-size: 1.1rem;
+  }
+
+  .message-item {
+    padding: 0.75rem 1rem;
+    max-width: 85%;
+  }
+
+  .messages-input {
+    font-size: 0.9rem;
+  }
+
+  .messages-button {
+    padding: 0.6rem 1.2rem;
+  }
+}
+.sound-permission-button {
+  background-color: #10b981;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-left: 10px;
 }

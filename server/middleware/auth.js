@@ -1,26 +1,31 @@
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
 
 const authMiddleware = async (req, res, next) => {
-  const authHeader = req.header('Authorization');
-  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-  if (!token) {
-    console.error('Token gerekli hatası (konsola loglandı): Bearer <token> bekleniyor');
-    return res.status(401).json({ msg: 'Token gerekli' });
-  }
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-    const user = await User.findById(decoded.id);
-    if (!user || user.isBanned) {
-      console.error('Banlı kullanıcı veya geçersiz token hatası (konsola loglandı)');
-      return res.status(401).json({ msg: 'Geçersiz token veya banlı kullanıcı' });
+    // Authorization başlığını al
+    const authHeader = req.header('Authorization');
+    if (!authHeader) {
+      return res.status(401).json({ msg: 'Yetkilendirme başlığı eksik' });
     }
-    req.user = decoded;
-    req.userId = decoded.id; // api.js ile uyumluluk için korundu
+
+    // Bearer token formatını kontrol et
+    const token = authHeader.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ msg: 'Geçersiz token formatı' });
+    }
+
+    // Token'ı doğrula
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+    if (!decoded.id) {
+      return res.status(401).json({ msg: 'Geçersiz token' });
+    }
+
+    // req.user'a decoded veriyi ekle
+    req.user = { id: decoded.id, isAdmin: decoded.isAdmin };
     next();
-  } catch (e) {
-    console.error('Geçersiz token hatası (konsola loglandı):', e.message);
-    return res.status(401).json({ msg: 'Geçersiz token' });
+  } catch (err) {
+    console.error('Auth middleware error:', err);
+    res.status(401).json({ msg: 'Token doğrulama başarısız' });
   }
 };
 

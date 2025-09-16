@@ -1,22 +1,27 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useContext } from 'react';
 import axios from 'axios';
 import { FaArrowLeft } from 'react-icons/fa';
+import { UserContext } from './context/UserContext';
+import { toast } from 'react-toastify';
 import './Messages.css';
 
 const Messages = () => {
+  const { currentUser } = useContext(UserContext);
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [allMessages, setAllMessages] = useState([]);
+  const [unreadCounts, setUnreadCounts] = useState({});
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [notificationIds, setNotificationIds] = useState(new Set());
   const messagesListRef = useRef(null);
-  const wsRef = useRef(null); // WebSocket referansı
+  const wsRef = useRef(null);
+  const notificationSound = useRef(new Audio(currentUser?.notificationSound || '/voice/mixkit-access-allowed-tone-2869.wav'));
 
-  // ObjectId doğrulama fonksiyonu
   const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
 
-  // Mesajlaşmış kullanıcıları fetch eden fonksiyon
   const fetchMessagedUsers = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
@@ -27,10 +32,20 @@ const Messages = () => {
         throw new Error('Geçersiz kullanıcı ID');
       }
 
-      const msgRes = await axios.get('http://localhost:5500/api/messages', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const [msgRes, unreadRes] = await Promise.all([
+        axios.get('http://localhost:5500/api/messages', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get('http://localhost:5500/api/messages/unread/count', {
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(err => {
+          console.error('Okunmamış mesaj sayıları alınamadı:', err);
+          return { data: {} };
+        }),
+      ]);
+
       setAllMessages(msgRes.data);
+      setUnreadCounts(unreadRes.data);
 
       const uniqueUsers = new Map();
       msgRes.data.forEach((msg) => {
@@ -46,10 +61,10 @@ const Messages = () => {
     } catch (err) {
       console.error('Mesajlaşmış kullanıcılar fetch hatası:', err);
       setUsers([]);
+      setUnreadCounts({});
     }
   }, []);
 
-  // Seçili kullanıcı için mesajları fetch eden fonksiyon
   const fetchMessagesForUser = useCallback(
     async (user) => {
       try {
@@ -80,7 +95,45 @@ const Messages = () => {
     [allMessages]
   );
 
-  // WebSocket bağlantısı
+  const markNotificationsAsRead = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.put(
+        'http://localhost:5500/api/notifications/read',
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      console.log('Bildirimler okundu:', response.data);
+    } catch (err) {
+      console.error('Bildirimler okundu işaretleme hatası:', err);
+      if (err.response?.status === 404) {
+        console.error('404 Hatası: /api/notifications/read endpointi bulunamadı.');
+      }
+    }
+  };
+
+  const playNotificationSound = async () => {
+    if (!soundEnabled) {
+      console.log('Ses çalma engellendi: Bildirim sesi kapalı');
+      return;
+    }
+    try {
+      await notificationSound.current.play();
+      console.log('Bildirim sesi çalındı:', notificationSound.current.src);
+    } catch (err) {
+      console.error('Ses çalma hatası:', err);
+      if (err.name === 'NotAllowedError') {
+        toast.warn('Ses izni için sayfaya tıklayın veya toggle butonuna basın!');
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser?.notificationSound) {
+      notificationSound.current.src = currentUser.notificationSound;
+    }
+  }, [currentUser?.notificationSound]);
+
   useEffect(() => {
     const storedUserId = localStorage.getItem('userId');
     if (!storedUserId || !isValidObjectId(storedUserId)) {
@@ -98,7 +151,7 @@ const Messages = () => {
         return;
       }
 
-      const ws = new WebSocket('ws://localhost:3000/ws');
+      const ws = new WebSocket('ws://localhost:5500');
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -114,13 +167,9 @@ const Messages = () => {
           if (data.type === 'newMessage') {
             const message = data.message;
             setAllMessages((prev) => {
-              const updated = [...prev, message];
-              // Mesajın zaten var olup olmadığını kontrol et
-              const uniqueMessages = updated.filter(
-                (msg, index, self) =>
-                  index === self.findIndex((m) => m._id === msg._id)
-              );
-              return uniqueMessages;
+              const exists = prev.some((msg) => msg._id === message._id);
+              if (exists) return prev;
+              return [...prev, message];
             });
 
             if (
@@ -131,15 +180,10 @@ const Messages = () => {
                 message.receiver._id.toString() === selectedUser._id)
             ) {
               setMessages((prev) => {
+                const exists = prev.some((msg) => msg._id === message._id);
+                if (exists) return prev;
                 const updated = [...prev, message];
-                // Mesajın zaten var olup olmadığını kontrol et
-                const uniqueMessages = updated.filter(
-                  (msg, index, self) =>
-                    index === self.findIndex((m) => m._id === msg._id)
-                );
-                return uniqueMessages.sort(
-                  (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
-                );
+                return updated.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
               });
               setTimeout(() => {
                 if (messagesListRef.current) {
@@ -147,9 +191,40 @@ const Messages = () => {
                 }
               }, 0);
             }
+
+            if (message.receiver._id.toString() === storedUserId && !message.isRead) {
+              setUnreadCounts((prev) => {
+                const newCount = (prev[message.sender._id] || 0) + 1;
+                return { ...prev, [message.sender._id]: newCount };
+              });
+              playNotificationSound();
+            }
           } else if (data.type === 'newNotification') {
-            console.log('New notification received:', data.notification);
-            // Bildirimleri işlemek için gerekirse bir state ekle
+            const notification = data.notification;
+            if (notificationIds.has(notification._id)) {
+              console.log('Duplicate notification ignored:', notification._id);
+              return;
+            }
+            setNotificationIds((prev) => new Set(prev).add(notification._id));
+            console.log('New notification received:', notification);
+            playNotificationSound();
+          } else if (data.type === 'notificationsRead') {
+            setNotificationIds(new Set());
+            console.log('Notifications marked as read');
+          } else if (data.type === 'messagesRead') {
+            if (selectedUser && data.by === selectedUser._id) {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.receiver._id.toString() === data.by && !msg.isRead
+                    ? { ...msg, isRead: true }
+                    : msg
+                )
+              );
+              setUnreadCounts((prev) => ({
+                ...prev,
+                [data.by]: 0,
+              }));
+            }
           }
         } catch (err) {
           console.error('WebSocket message error:', err);
@@ -164,7 +239,7 @@ const Messages = () => {
             console.log(`Attempting to reconnect WebSocket... (Attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
             connectWebSocket();
           }
-        }, 3000);
+        }, 5000);
       };
 
       ws.onerror = (error) => {
@@ -182,19 +257,57 @@ const Messages = () => {
     };
   }, []);
 
-  // Mesajlaşmış kullanıcıları ilk yüklemede fetch et
   useEffect(() => {
     fetchMessagedUsers();
   }, [fetchMessagedUsers]);
 
-  // allMessages değiştiğinde mesajları güncelle
   useEffect(() => {
     if (selectedUser) {
       fetchMessagesForUser(selectedUser);
+      markNotificationsAsRead();
     }
   }, [allMessages, selectedUser, fetchMessagesForUser]);
 
-  // Arama fonksiyonu
+  useEffect(() => {
+    if (selectedUser && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'enterChat', chatWith: selectedUser._id }));
+      const markAsRead = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const response = await axios.put(
+            'http://localhost:5500/api/messages/read',
+            { sender: selectedUser._id },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.sender._id.toString() === selectedUser._id && !msg.isRead
+                ? { ...msg, isRead: true }
+                : msg
+            )
+          );
+          setUnreadCounts((prev) => ({
+            ...prev,
+            [selectedUser._id]: 0,
+          }));
+          console.log('Mesajlar okundu:', response.data);
+        } catch (err) {
+          console.error('Okundu işaretleme hatası:', err);
+          if (err.response?.status === 404) {
+            console.error('404 Hatası: /api/messages/read endpointi bulunamadı.');
+          }
+        }
+      };
+      markAsRead();
+    }
+
+    return () => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'leaveChat' }));
+      }
+    };
+  }, [selectedUser]);
+
   const handleSearch = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -216,7 +329,6 @@ const Messages = () => {
     }
   };
 
-  // Mesaj gönderme fonksiyonu
   const sendMessage = async (e) => {
     e.preventDefault();
     if (!selectedUser || !text.trim()) return;
@@ -230,33 +342,32 @@ const Messages = () => {
         }
       );
       setAllMessages((prev) => {
-        const updated = [...prev, res.data];
-        return updated.filter(
-          (msg, index, self) =>
-            index === self.findIndex((m) => m._id === msg._id)
-        );
+        const exists = prev.some((msg) => msg._id === res.data._id);
+        if (exists) return prev;
+        return [...prev, res.data];
       });
       setText('');
       await fetchMessagedUsers();
-      await axios.post(
-        'http://localhost:5500/api/notifications',
-        {
-          userId: selectedUser._id,
-          message: `Yeni mesaj: ${text.slice(0, 50)}${text.length > 50 ? '...' : ''}`,
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
     } catch (err) {
       console.error('Mesaj gönderme hatası:', err);
     }
   };
 
-  // Geri dönme fonksiyonu
   const goBackToList = () => {
     setSelectedUser(null);
     setMessages([]);
+  };
+
+  const toggleSound = () => {
+    setSoundEnabled((prev) => {
+      const newState = !prev;
+      console.log('Bildirim sesi toggle edildi:', newState ? 'Açık' : 'Kapalı');
+      if (!newState) {
+        notificationSound.current.pause();
+        notificationSound.current.currentTime = 0;
+      }
+      return newState;
+    });
   };
 
   return (
@@ -264,16 +375,25 @@ const Messages = () => {
       <h1 className="messages-title">Mesajlar</h1>
       {!selectedUser ? (
         <>
-          <div className="messages-search">
-            <input
-              type="text"
-              className="messages-search-input"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Takip ettiklerinden kullanıcı ara..."
-            />
-            <button className="messages-search-button" onClick={handleSearch}>
-              Ara
+          <div className="messages-header">
+            <div className="messages-search">
+              <input
+                type="text"
+                className="messages-search-input"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Takip ettiklerinden kullanıcı ara..."
+              />
+              <button className="messages-search-button" onClick={handleSearch}>
+                Ara
+              </button>
+            </div>
+            <button
+              className="toggle-button"
+              onClick={toggleSound}
+              style={{ backgroundColor: soundEnabled ? '#2563eb' : '#6b7280' }}
+            >
+              Bildirim Sesi: {soundEnabled ? 'Açık' : 'Kapalı'}
             </button>
           </div>
           <div className="users-list">
@@ -284,12 +404,17 @@ const Messages = () => {
                   className="user-item"
                   onClick={() => fetchMessagesForUser(user)}
                 >
-                  <img
-                    src={user.profilePicture || 'https://via.placeholder.com/40'}
-                    alt={user.username}
-                    className="user-avatar"
-                  />
-                  <span className="user-name">{user.username}</span>
+                  <div className="user-item-content">
+                    <img
+                      src={user.profilePicture || 'https://via.placeholder.com/40'}
+                      alt={user.username}
+                      className="user-avatar"
+                    />
+                    <span className="user-name">{user.username}</span>
+                    {unreadCounts[user._id] > 0 && (
+                      <span className="unread-badge">{unreadCounts[user._id]}</span>
+                    )}
+                  </div>
                 </div>
               ))
             ) : (
@@ -328,6 +453,11 @@ const Messages = () => {
                       minute: '2-digit',
                     })}
                   </span>
+                  {msg.sender._id.toString() === localStorage.getItem('userId') && (
+                    <span className="message-status">
+                      {msg.isRead ? 'Okundu' : 'Gönderildi'}
+                    </span>
+                  )}
                 </li>
               ) : null
             )}

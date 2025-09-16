@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import { UserProvider } from './context/UserContext';
@@ -16,6 +16,8 @@ function AppContent() {
   const location = useLocation();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const wsRef = useRef(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -27,9 +29,35 @@ function AppContent() {
     }
   }, [location.pathname]);
 
+  // Global WebSocket bağlantısı (bildirimler için anlık güncelleme) - URL düzeltildi
+  useEffect(() => {
+    if (isLoggedIn) {
+      const storedUserId = localStorage.getItem('userId');
+      const ws = new WebSocket('ws://localhost:5500'); // URL düzeltildi: /ws kaldırıldı
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'join', userId: storedUserId }));
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'newNotification') {
+          setUnreadNotifications((prev) => prev + 1);
+        } else if (data.type === 'notificationsRead') {
+          setUnreadNotifications(0);
+        }
+      };
+
+      return () => {
+        ws.close();
+      };
+    }
+  }, [isLoggedIn]);
+
   return (
     <div className="app">
-      <Navbar isLoggedIn={isLoggedIn} setIsAuthModalOpen={setIsAuthModalOpen} />
+      <Navbar isLoggedIn={isLoggedIn} setIsAuthModalOpen={setIsAuthModalOpen} unreadNotifications={unreadNotifications} />
 
       <Routes>
         <Route path="/" element={<TodoList />} />

@@ -14,9 +14,31 @@ const userSchema = new mongoose.Schema({
   isBanned: { type: Boolean, default: false },
   followersCount: { type: Number, default: 0 },
   followingCount: { type: Number, default: 0 },
+  notificationSound: {
+    type: String,
+    default: '/voice/mixkit-access-allowed-tone-2869.wav',
+    validate: {
+      validator: function (v) {
+        return !v || [
+          '/voice/mixkit-access-allowed-tone-2869.wav',
+          '/voice/mixkit-alert-bells-echo-765.wav',
+          '/voice/mixkit-alert-quick-chime-766.wav',
+          '/voice/mixkit-arcade-bonus-alert-767.wav',
+          '/voice/mixkit-confirmation-tone-2867.wav',
+          '/voice/mixkit-correct-answer-tone-2870.wav',
+          '/voice/mixkit-digital-quick-tone-2866.wav',
+          '/voice/mixkit-digital-quick-tone-2866 (1).wav',
+          '/voice/mixkit-elevator-tone-2863.wav',
+          '/voice/mixkit-interface-option-select-2573.wav',
+          '/voice/mixkit-software-interface-start-2574.wav',
+        ].includes(v);
+      },
+      message: 'Geçersiz bildirim sesi',
+    },
+  },
 });
 
-// Virtual fields (opsiyonel, fiziksel field'lar eklendiği için kaldırılabilir)
+// Virtual fields
 userSchema.virtual('virtualFollowersCount').get(function () {
   return Array.isArray(this.followers) ? this.followers.length : 0;
 });

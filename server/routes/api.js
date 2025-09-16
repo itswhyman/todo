@@ -27,6 +27,7 @@ const storage = multer.diskStorage({
     cb(null, `${Date.now()}${path.extname(file.originalname)}`);
   },
 });
+
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 },
@@ -62,10 +63,10 @@ export default function () {
       if (existingUser) {
         return res.status(400).json({ msg: 'Email veya kullanıcı adı zaten kullanılıyor' });
       }
-      const user = new User({ username, email, password });
+      const user = new User({ username, email, password, notificationSound: '/voice/mixkit-access-allowed-tone-2869.wav' });
       await user.save();
       const token = jwt.sign({ id: user._id, isAdmin: user.isAdmin }, process.env.JWT_SECRET || 'secret');
-      res.json({ token, user: { id: user._id.toString(), username, email } });
+      res.json({ token, user: { id: user._id.toString(), username, email, notificationSound: user.notificationSound } });
     } catch (err) {
       console.error('Signup error:', err);
       res.status(400).json({ msg: 'Kayıt sırasında hata oluştu' });
@@ -84,7 +85,7 @@ export default function () {
       const isMatch = await user.comparePassword(password);
       if (!isMatch) return res.status(400).json({ msg: 'Şifre yanlış' });
       const token = jwt.sign({ id: user._id, isAdmin: user.isAdmin }, process.env.JWT_SECRET || 'secret');
-      res.json({ token, user: { id: user._id.toString(), username: user.username, email } });
+      res.json({ token, user: { id: user._id.toString(), username: user.username, email, notificationSound: user.notificationSound } });
     } catch (err) {
       console.error('Login error:', err);
       res.status(400).json({ msg: 'Giriş sırasında hata oluştu' });
@@ -114,6 +115,7 @@ export default function () {
       res.json({
         ...user.toJSON(),
         blockedByCurrentUser: currentUser.blockedUsers?.some(b => b._id.equals(user._id)) || false,
+        notificationSound: user.notificationSound,
       });
     } catch (err) {
       console.error('Get user error:', err);
@@ -155,6 +157,43 @@ export default function () {
         return res.status(400).json({ msg: 'Geçersiz dosya formatı veya boyutu (max 5MB, JPEG/PNG/GIF)' });
       }
       res.status(500).json({ msg: 'Güncelleme sırasında hata oluştu' });
+    }
+  });
+
+  router.put('/users/:id/settings', authMiddleware, async (req, res) => {
+    try {
+      if (req.user.id !== req.params.id) {
+        return res.status(403).json({ msg: 'Kendi ayarlarınızı güncelleyebilirsiniz' });
+      }
+      const { notificationSound } = req.body;
+      if (!notificationSound) {
+        return res.status(400).json({ msg: 'Bildirim sesi gerekli' });
+      }
+      if (![
+        '/voice/mixkit-access-allowed-tone-2869.wav',
+        '/voice/mixkit-alert-bells-echo-765.wav',
+        '/voice/mixkit-alert-quick-chime-766.wav',
+        '/voice/mixkit-arcade-bonus-alert-767.wav',
+        '/voice/mixkit-confirmation-tone-2867.wav',
+        '/voice/mixkit-correct-answer-tone-2870.wav',
+        '/voice/mixkit-digital-quick-tone-2866.wav',
+        '/voice/mixkit-digital-quick-tone-2866 (1).wav',
+        '/voice/mixkit-elevator-tone-2863.wav',
+        '/voice/mixkit-interface-option-select-2573.wav',
+        '/voice/mixkit-software-interface-start-2574.wav',
+      ].includes(notificationSound)) {
+        return res.status(400).json({ msg: 'Geçersiz bildirim sesi' });
+      }
+      const updatedUser = await User.findByIdAndUpdate(
+        req.params.id,
+        { notificationSound },
+        { new: true, runValidators: true }
+      ).select('-password');
+      if (!updatedUser) return res.status(404).json({ msg: 'Kullanıcı bulunamadı' });
+      res.json(updatedUser);
+    } catch (err) {
+      console.error('Settings update error:', err);
+      res.status(500).json({ msg: 'Ayarlar güncelleme başarısız' });
     }
   });
 
@@ -242,6 +281,17 @@ export default function () {
       userToFollow.followersCount = (userToFollow.followersCount || 0) + 1;
       await currentUser.save();
       await userToFollow.save();
+      const notification = new Notification({
+        userId: req.params.id,
+        message: `${currentUser.username} sizi takip etti`,
+      });
+      await notification.save();
+      const populatedNotification = await Notification.findById(notification._id).lean();
+      global.wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN && client.userId === req.params.id.toString()) {
+          client.send(JSON.stringify({ type: 'newNotification', notification: populatedNotification }));
+        }
+      });
       res.json({ msg: 'Takip edildi' });
     } catch (err) {
       console.error('Follow error:', err);
@@ -441,7 +491,7 @@ export default function () {
       global.wss.clients.forEach(client => {
         if (
           client.readyState === WebSocket.OPEN &&
-          (client.userId === req.user.id.toString() || client.userId === receiver)
+          (client.userId === req.user.id.toString() || client.userId === receiver.toString())
         ) {
           client.send(JSON.stringify({ type: 'newMessage', message: populatedMessage }));
         }
@@ -450,6 +500,87 @@ export default function () {
     } catch (err) {
       console.error('Create message error:', err);
       res.status(500).json({ msg: 'Mesaj oluşturma başarısız' });
+    }
+  });
+
+  router.put('/messages/read', authMiddleware, async (req, res) => {
+    try {
+      const { sender } = req.body;
+      if (!sender || !mongoose.Types.ObjectId.isValid(sender)) {
+        return res.status(400).json({ msg: 'Geçersiz gönderen ID' });
+      }
+      const updatedCount = await Message.updateMany(
+        { sender, receiver: req.user.id, isRead: false, isDeleted: { $ne: true } },
+        { isRead: true }
+      );
+      global.wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN && client.userId === sender) {
+          client.send(JSON.stringify({ type: 'messagesRead', by: req.user.id.toString() }));
+        }
+      });
+      res.json({ msg: 'Mesajlar okundu olarak işaretlendi', updated: updatedCount });
+    } catch (err) {
+      console.error('Mark as read error:', err);
+      res.status(500).json({ msg: 'Okundu işaretleme başarısız' });
+    }
+  });
+
+  router.get('/messages/unread/count', authMiddleware, async (req, res) => {
+    try {
+      const messages = await Message.aggregate([
+        {
+          $match: {
+            receiver: new mongoose.Types.ObjectId(req.user.id),
+            isRead: false,
+            isDeleted: { $ne: true },
+          },
+        },
+        {
+          $group: {
+            _id: '$sender',
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+      const unreadCounts = {};
+      messages.forEach((msg) => {
+        unreadCounts[msg._id.toString()] = msg.count;
+      });
+      res.json(unreadCounts);
+    } catch (err) {
+      console.error('Get unread messages count error:', err);
+      res.status(500).json({ msg: 'Okunmamış mesaj sayıları alınamadı' });
+    }
+  });
+
+  router.get('/notifications/unread', authMiddleware, async (req, res) => {
+    try {
+      const count = await Notification.countDocuments({
+        userId: req.user.id,
+        isRead: false,
+      });
+      res.json({ count });
+    } catch (err) {
+      console.error('Get unread notifications count error:', err);
+      res.status(500).json({ msg: 'Okunmamış bildirim sayısı alınamadı' });
+    }
+  });
+
+  router.put('/notifications/read', authMiddleware, async (req, res) => {
+    try {
+      const updatedCount = await Notification.updateMany(
+        { userId: req.user.id, isRead: false },
+        { isRead: true }
+      );
+      global.wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN && client.userId === req.user.id.toString()) {
+          client.send(JSON.stringify({ type: 'notificationsRead' }));
+        }
+      });
+      res.json({ msg: 'Bildirimler okundu olarak işaretlendi', updated: updatedCount });
+    } catch (err) {
+      console.error('Mark notifications as read error:', err);
+      res.status(500).json({ msg: 'Bildirim okundu işaretleme başarısız' });
     }
   });
 
@@ -466,7 +597,7 @@ export default function () {
       await notification.save();
       const populatedNotification = await Notification.findById(notification._id).lean();
       global.wss.clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN && client.userId === userId) {
+        if (client.readyState === WebSocket.OPEN && client.userId === userId.toString()) {
           client.send(JSON.stringify({ type: 'newNotification', notification: populatedNotification }));
         }
       });

@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import axios from 'axios';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUser, faPen, faGear, faLock } from '@fortawesome/free-solid-svg-icons';
+import { faUser, faPen, faGear, faLock, faVolumeUp } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'react-toastify';
 import { UserContext } from './context/UserContext';
 import { useNavigate } from 'react-router-dom';
@@ -18,12 +18,28 @@ const Profile = ({ setIsAuthModalOpen }) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showSoundModal, setShowSoundModal] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [editData, setEditData] = useState({ username: '', bio: '', profilePicture: '', file: null, preview: null });
   const [passwordData, setPasswordData] = useState({ oldPassword: '', newPassword: '', confirmNewPassword: '' });
+  const [selectedSound, setSelectedSound] = useState('/voice/mixkit-access-allowed-tone-2869.wav');
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState(null);
   const navigate = useNavigate();
+
+  const soundOptions = [
+    { name: 'Erişim İzni', value: '/voice/mixkit-access-allowed-tone-2869.wav' },
+    { name: 'Zil Yankısı', value: '/voice/mixkit-alert-bells-echo-765.wav' },
+    { name: 'Hızlı Çan', value: '/voice/mixkit-alert-quick-chime-766.wav' },
+    { name: 'Arcade Bonusu', value: '/voice/mixkit-arcade-bonus-alert-767.wav' },
+    { name: 'Onay Tonu', value: '/voice/mixkit-confirmation-tone-2867.wav' },
+    { name: 'Doğru Cevap', value: '/voice/mixkit-correct-answer-tone-2870.wav' },
+    { name: 'Dijital Hızlı 1', value: '/voice/mixkit-digital-quick-tone-2866.wav' },
+    { name: 'Dijital Hızlı 2', value: '/voice/mixkit-digital-quick-tone-2866 (1).wav' },
+    { name: 'Asansör Tonu', value: '/voice/mixkit-elevator-tone-2863.wav' },
+    { name: 'Arayüz Seçimi', value: '/voice/mixkit-interface-option-select-2573.wav' },
+    { name: 'Yazılım Başlangıcı', value: '/voice/mixkit-software-interface-start-2574.wav' },
+  ];
 
   useEffect(() => {
     if (currentUser) {
@@ -35,6 +51,7 @@ const Profile = ({ setIsAuthModalOpen }) => {
         file: null,
         preview: currentUser.profilePicture || null,
       });
+      setSelectedSound(currentUser.notificationSound || '/voice/mixkit-access-allowed-tone-2869.wav');
       setLoading(false);
       try {
         const token = localStorage.getItem('token');
@@ -60,7 +77,6 @@ const Profile = ({ setIsAuthModalOpen }) => {
       const res = await axios.get(`http://localhost:5500/api/users/${decoded.id}/followers`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      console.log('Followers Response:', res.data); // Hata ayıklama için
       setFollowers(res.data || []);
       setShowFollowersModal(true);
     } catch (err) {
@@ -78,7 +94,6 @@ const Profile = ({ setIsAuthModalOpen }) => {
       const res = await axios.get(`http://localhost:5500/api/users/${decoded.id}/following`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      console.log('Following Response:', res.data); // Hata ayıklama için
       setFollowing(res.data || []);
       setShowFollowingModal(true);
     } catch (err) {
@@ -229,10 +244,6 @@ const Profile = ({ setIsAuthModalOpen }) => {
     try {
       const token = localStorage.getItem('token');
       const decoded = JSON.parse(atob(token.split('.')[1]));
-      console.log('Sending password change request:', {
-        oldPassword: passwordData.oldPassword,
-        newPassword: passwordData.newPassword,
-      });
       await axios.put(`http://localhost:5500/api/users/${decoded.id}/password`, {
         oldPassword: passwordData.oldPassword,
         newPassword: passwordData.newPassword,
@@ -251,6 +262,24 @@ const Profile = ({ setIsAuthModalOpen }) => {
 
   const handlePasswordChangeInput = (e) => {
     setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
+  };
+
+  const handleSoundChange = async (sound) => {
+    try {
+      const audio = new Audio(sound);
+      await audio.play().catch((err) => console.error('Ses çalma hatası:', err));
+      setSelectedSound(sound);
+      const token = localStorage.getItem('token');
+      const decoded = JSON.parse(atob(token.split('.')[1]));
+      await axios.put(`http://localhost:5500/api/users/${decoded.id}/settings`, { notificationSound: sound }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success('Bildirim sesi güncellendi');
+      await fetchCurrentUser(); // Context'i güncelle
+    } catch (err) {
+      toast.error('Bildirim sesi güncelleme başarısız: ' + (err.response?.data?.msg || err.message));
+      console.error('Sound change error:', err.response?.data || err);
+    }
   };
 
   if (loading) return <div className="profile-loading">Yükleniyor...</div>;
@@ -466,22 +495,33 @@ const Profile = ({ setIsAuthModalOpen }) => {
             <h2>Ayarlar</h2>
             <div className="settings-options">
               <button
-                className="user-profile-button user-profile-follow"
+                className="settings-button"
                 onClick={() => {
                   setShowPasswordModal(true);
                   setShowSettingsModal(false);
                 }}
               >
                 Şifre Değiştir
+                <FontAwesomeIcon icon={faLock} style={{ marginLeft: '8px' }} />
               </button>
               <button
-                className="user-profile-button user-profile-message"
+                className="settings-button"
+                onClick={() => {
+                  setShowSoundModal(true);
+                  setShowSettingsModal(false);
+                }}
+              >
+                Bildirim Sesi
+                <FontAwesomeIcon icon={faVolumeUp} style={{ marginLeft: '8px' }} />
+              </button>
+              <button
+                className="settings-button"
                 onClick={() => toast.info('Hesap ayarları yakında')}
               >
                 Hesap Ayarları
               </button>
               <button
-                className="user-profile-button user-profile-block"
+                className="settings-button"
                 onClick={() => toast.info('Gizlilik ayarları yakında')}
               >
                 Gizlilik
@@ -538,6 +578,31 @@ const Profile = ({ setIsAuthModalOpen }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showSoundModal && (
+        <div className="modal-overlay" onClick={() => setShowSoundModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Bildirim Sesi Seç</h2>
+            <div className="sound-options">
+              {soundOptions.map((option) => (
+                <button
+                  key={option.value}
+                  className={`sound-option-button ${selectedSound === option.value ? 'selected' : ''}`}
+                  onClick={() => handleSoundChange(option.value)}
+                >
+                  {option.name}
+                  <FontAwesomeIcon icon={faVolumeUp} style={{ marginLeft: '8px' }} />
+                </button>
+              ))}
+            </div>
+            <div className="modal-buttons">
+              <button type="button" onClick={() => setShowSoundModal(false)}>
+                Kapat
+              </button>
+            </div>
           </div>
         </div>
       )}
