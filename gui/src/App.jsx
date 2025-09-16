@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import { UserProvider } from './context/UserContext';
 import Navbar from './Navbar';
@@ -12,44 +12,53 @@ import UserSearch from './UserSearch';
 import ErrorBoundary from './ErrorBoundary';
 import './App.css';
 
-function App() {
+function AppContent() {
+  const location = useLocation();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     setIsLoggedIn(!!token);
-  }, []);
+
+    if (token && location.pathname === '/login') {
+      window.history.replaceState(null, '', '/');
+      window.location.href = '/';
+    }
+  }, [location.pathname]);
 
   return (
-    <Router
-      future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true,
-        v7_fetcherPersist: true,
-        v7_normalizeFormMethod: true,
-        v7_partialHydration: true,
-        v7_skipActionErrorRevalidation: true,
-      }}
-    >
-      <UserProvider setIsAuthModalOpen={setIsAuthModalOpen} setIsLoggedIn={setIsLoggedIn}>
+    <div className="app">
+      <Navbar isLoggedIn={isLoggedIn} setIsAuthModalOpen={setIsAuthModalOpen} />
+
+      <Routes>
+        <Route path="/" element={<TodoList />} />
+        <Route path="/messages" element={<Messages />} />
+        <Route path="/profile" element={<Profile setIsAuthModalOpen={setIsAuthModalOpen} />} />
+        <Route path="/search" element={<UserSearch setIsAuthModalOpen={setIsAuthModalOpen} />} />
+        <Route path="/user/:id" element={<UserProfile setIsAuthModalOpen={setIsAuthModalOpen} />} />
+        <Route path="*" element={<div>404 - Sayfa bulunamadı</div>} />
+      </Routes>
+
+      {isAuthModalOpen && (
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          setIsLoggedIn={setIsLoggedIn}
+        />
+      )}
+
+      <ToastContainer position="top-right" autoClose={3000} />
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <UserProvider setIsAuthModalOpen={(open) => {}} setIsLoggedIn={(loggedIn) => {}}>
         <ErrorBoundary>
-          <div className="app">
-            <Navbar isLoggedIn={isLoggedIn} setIsAuthModalOpen={setIsAuthModalOpen} />
-            <Routes>
-              <Route path="/" element={<TodoList />} />
-              <Route path="/messages" element={<Messages />} />
-              <Route path="/profile" element={<Profile setIsAuthModalOpen={setIsAuthModalOpen} />} />
-              <Route path="/search" element={<UserSearch setIsAuthModalOpen={setIsAuthModalOpen} />} />
-              <Route path="/user/:id" element={<UserProfile setIsAuthModalOpen={setIsAuthModalOpen} />} />
-            </Routes>
-            <AuthModal
-              isOpen={isAuthModalOpen}
-              onClose={() => setIsAuthModalOpen(false)}
-              setIsLoggedIn={setIsLoggedIn}
-            />
-            <ToastContainer position="top-right" autoClose={3000} />
-          </div>
+          <AppContent />
         </ErrorBoundary>
       </UserProvider>
     </Router>

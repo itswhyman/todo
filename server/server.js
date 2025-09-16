@@ -8,10 +8,6 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import apiRoutes from './routes/api.js';
 import { WebSocketServer } from 'ws';
-import User from './models/User.js';
-import Todo from './models/Todo.js';
-import Message from './models/Message.js';
-import Notification from './models/Notification.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -22,18 +18,14 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// uploads klasörünü public yapmak
 app.use('/uploads', express.static(path.join(__dirname, 'Uploads')));
 
-// Test endpoint'i
 app.get('/api/test', (req, res) => {
   res.json({ msg: 'Backend çalışıyor' });
 });
 
-// API rotalarını yüklemeden önce log ekle
 console.log('Loading API routes from ./routes/api.js');
 
-// WebSocket server'ı başlat
 global.wss = new WebSocketServer({ port: 8080 });
 
 global.wss.on('connection', (ws) => {
@@ -72,8 +64,6 @@ global.wss.on('connection', (ws) => {
   });
 });
 
-
-// Keep-alive mekanizması
 setInterval(() => {
   global.wss.clients.forEach((ws) => {
     if (!ws.isAlive) {
@@ -83,32 +73,36 @@ setInterval(() => {
     ws.isAlive = false;
     ws.ping();
   });
-}, 15000); // 15 saniyeye düşürüldü
+}, 15000);
 
-// Connect'i await ile yap, strictQuery false ekle (bug fix)
 mongoose.set('strictQuery', false);
 let connected = false;
 try {
-  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/todoapp');
+  // Bağlantı dizesini ve ortam değişkenlerini kontrol et
+  const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/todoapp';
+  console.log('MongoDB bağlantı dizesi:', mongoUri); // Hata ayıklama için
+  await mongoose.connect(mongoUri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 5000, // Bağlantı zaman aşımı
+  });
   connected = true;
-  console.log('MongoDB connected');
+  console.log('MongoDB bağlantısı başarılı');
 } catch (err) {
-  console.log('MongoDB connection error:', err);
+  console.log('MongoDB bağlantı hatası:', err);
   process.exit(1);
 }
 
 if (connected) {
-  // API rotalarını kullan
-  app.use('/api', apiRoutes); // wss zaten global, parametreye gerek yok
+  app.use('/api', apiRoutes());
 
-  // Debug amaçlı 404 handler
   app.use('*', (req, res) => {
-    console.log(`Unmatched route: ${req.method} ${req.originalUrl}`);
-    res.status(404).json({ msg: 'Route not found' });
+    console.log(`Eşleşmeyen rota: ${req.method} ${req.originalUrl}`);
+    res.status(404).json({ msg: 'Rota bulunamadı' });
   });
 
   const PORT = process.env.PORT || 5500;
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  app.listen(PORT, () => console.log(`Sunucu ${PORT} portunda çalışıyor`));
 } else {
   console.log('DB bağlantısı başarısız, sunucu başlatılmadı.');
 }

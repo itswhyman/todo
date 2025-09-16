@@ -1,41 +1,61 @@
 import React, { createContext, useState, useCallback, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
 export const UserContext = createContext();
 
 export const UserProvider = ({ children, setIsAuthModalOpen, setIsLoggedIn }) => {
   const [currentUser, setCurrentUser] = useState(null);
+  const [alertShown, setAlertShown] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const fetchCurrentUser = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        setIsAuthModalOpen(true);
+      const userId = localStorage.getItem('userId');
+
+      if (!token || !userId) {
+        if (!alertShown) {
+          toast.error('Hesap açmalısınız!');
+          setAlertShown(true);
+        }
         setIsLoggedIn(false);
-        navigate('/login');
+        setCurrentUser(null);
+        if (location.pathname !== '/login') {
+          setIsAuthModalOpen(true);
+          navigate('/', { replace: true });
+        }
         return null;
       }
-      const decoded = JSON.parse(atob(token.split('.')[1]));
-      const res = await axios.get(`http://localhost:5500/api/user/${decoded.id}`, {
+
+      const res = await axios.get(`http://localhost:5500/api/users/${userId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       setCurrentUser(res.data);
       setIsLoggedIn(true);
       return res.data;
     } catch (err) {
-      console.error('Fetch current user error:', err); // Hata takibi için
-      console.log('Current user:', currentUser);
-      toast.error('Profil yüklenemedi: ' + (err.response?.data?.msg || err.message));
-      setIsLoggedIn(false);
+      console.error('Kullanıcı yükleme hatası:', err);
+      toast.error('Profil yüklenemedi: Sunucu hatası');
+      localStorage.removeItem('token');
+      localStorage.removeItem('userId');
       setCurrentUser(null);
+      setIsLoggedIn(false);
+      if (!alertShown) {
+        toast.error('Hesap açmalısınız!');
+        setAlertShown(true);
+      }
+      if (location.pathname !== '/login') {
+        setIsAuthModalOpen(true);
+        navigate('/', { replace: true });
+      }
       return null;
     }
-  }, [navigate, setIsAuthModalOpen, setIsLoggedIn]);
+  }, [navigate, location.pathname, setIsAuthModalOpen, setIsLoggedIn, alertShown]);
 
-  // Sayfa yüklendiğinde fetchCurrentUser'u otomatik çağır
   useEffect(() => {
     fetchCurrentUser();
   }, [fetchCurrentUser]);

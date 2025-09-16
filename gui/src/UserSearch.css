@@ -4,7 +4,8 @@
   margin-left: auto;
   margin-right: auto;
   padding: 0 1rem;
-  width: 100%; /* Yeni: Ana konteyner tam genişlik */
+  width: 100%; /* Ana konteyner tam genişlik */
+  /* Yüksekliği sınırlamadan bırakıyoruz, böylece aşağı doğru uzayabilir */
 }
 
 .user-search-title {
@@ -44,13 +45,14 @@
 
 .user-search-list {
   display: flex;
-  flex-direction: row;
+  flex-direction: column; /* Alt alta dizme */
   gap: 0.5rem;
   align-items: stretch;
   width: 100%;
-  padding: 0;          /* Varsayılan padding'i kaldırır */
-  margin: 0;           /* Varsayılan margin'i kaldırır */
-  list-style: none;    /* Noktaları kaldırır */
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  /* max-height ve overflow-y kaldırıldı, böylece scroll görünmez ve aşağı uzar */
 }
 
 .user-search-item {
@@ -60,14 +62,14 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
-  justify-content: flex-start; /* Yeni: İçerik sola yaslı, ama kart tam genişlikte */
+  justify-content: flex-start;
   gap: 0.75rem;
   cursor: pointer;
   transition: background-color 0.2s ease;
   width: 100%; /* Kart tam genişlikte */
   max-width: none;
   margin: 0;
-  min-height: 60px; /* Opsiyonel: Sabit yükseklik, satır tutarlılığı için */
+  min-height: 60px; /* Sabit yükseklik, satır tutarlılığı için */
 }
 
 .user-search-item:hover {
@@ -94,7 +96,7 @@
   text-align: center;
   color: #6b7280;
   font-style: italic;
-  width: 100%; /* Yeni: Boş mesaj da tam genişlik */
+  width: 100%; /* Boş mesaj da tam genişlik */
   margin: 0 auto;
 }
 

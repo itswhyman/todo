@@ -2,125 +2,87 @@ import React, { useState, useContext } from 'react';
 import Modal from 'react-modal';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { useNavigate } from 'react-router-dom'; // Yönlendirme için eklendi
+import { useNavigate, useLocation } from 'react-router-dom';
 import { UserContext } from './context/UserContext';
 import './AuthModal.css';
-
-Modal.setAppElement('#root');
 
 const AuthModal = ({ isOpen, onClose, setIsLoggedIn }) => {
   const { fetchCurrentUser } = useContext(UserContext);
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({ username: '', email: '', password: '' });
   const [error, setError] = useState('');
-  const navigate = useNavigate(); // Yönlendirme için
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setError('');
-    // Frontend validation
-    if (!formData.email || !formData.password) {
-      setError('Email ve şifre gerekli');
-      toast.error('Email ve şifre gerekli');
+    setIsSubmitting(true);
+
+    if (!formData.email || !formData.password || (!isLogin && !formData.username)) {
+      const msg = 'Form alanları eksik';
+      toast.error(msg);
+      setError(msg);
+      setIsSubmitting(false);
       return;
     }
-    if (!isLogin && !formData.username) {
-      setError('Kullanıcı adı gerekli');
-      toast.error('Kullanıcı adı gerekli');
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      setError('Geçersiz email formatı');
-      toast.error('Geçersiz email formatı');
-      return;
-    }
-    if (formData.password.length < 6) {
-      setError('Şifre en az 6 karakter olmalı');
-      toast.error('Şifre en az 6 karakter olmalı');
-      return;
-    }
+
     try {
+      const endpoint = isLogin ? '/login' : '/signup';
       const submitData = isLogin
         ? { email: formData.email, password: formData.password }
         : { username: formData.username, email: formData.email, password: formData.password };
-      console.log('Frontend submit data:', submitData); // Debug
-      const endpoint = isLogin ? '/login' : '/signup';
+
       const res = await axios.post(`http://localhost:5500/api${endpoint}`, submitData, {
         headers: { 'Content-Type': 'application/json' },
       });
-      console.log('Auth response data:', res.data); // Debug response
+
       const { token, user } = res.data;
-      if (!token || !user.id) throw new Error('Geçersiz yanıt, token veya userId eksik');
+      if (!token || !user?.id) throw new Error('Geçersiz yanıt');
+
       localStorage.setItem('token', token);
-      localStorage.setItem('userId', user.id); // Sadece id string'ini sakla
-      console.log('Stored userId:', user.id); // Saklanan userId'yi logla
+      localStorage.setItem('userId', user.id);
+
       await fetchCurrentUser();
       setIsLoggedIn(true);
       onClose();
       toast.success(isLogin ? 'Başarılı giriş!' : 'Başarılı kayıt!');
-      navigate('/'); // Giriş veya kayıt sonrası ana sayfaya yönlendir
+
+      const from = location.state?.from || '/';
+      navigate(from, { replace: true });
     } catch (err) {
-      console.log('Frontend auth error:', err.response?.data); // Hata debug
+      console.error('Auth error:', err.response?.data || err.message);
       const msg = err.response?.data?.msg || 'Sunucu hatası';
       setError(msg);
-      toast.error('Hata: ' + msg);
+      toast.error(msg);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   return (
-    <Modal isOpen={isOpen} onRequestClose={onClose} className="auth-modal">
+    <Modal
+      isOpen={isOpen}
+      onRequestClose={onClose}
+      className="auth-modal"
+      overlayClassName="auth-overlay"
+      shouldCloseOnOverlayClick={true}
+      closeTimeoutMS={200}
+      ariaHideApp={false}
+    >
       <h2 className="auth-modal-title">{isLogin ? 'Giriş Yap' : 'Kayıt Ol'}</h2>
       {error && <p className="auth-error">{error}</p>}
       <form onSubmit={handleSubmit} className="auth-modal-form">
-        {!isLogin && (
-          <input
-            type="text"
-            name="username"
-            placeholder="Kullanıcı Adı (en az 3 karakter)"
-            value={formData.username}
-            onChange={handleChange}
-            className="auth-modal-input"
-            required
-            minLength="3"
-          />
-        )}
-        <input
-          type="email"
-          name="email"
-          placeholder="Email (örnek: user@example.com)"
-          value={formData.email}
-          onChange={handleChange}
-          className="auth-modal-input"
-          required
-        />
-        <input
-          type="password"
-          name="password"
-          placeholder="Şifre (en az 6 karakter)"
-          value={formData.password}
-          onChange={handleChange}
-          className="auth-modal-input"
-          required
-          minLength="6"
-        />
-        <button type="submit" className="auth-modal-button">
-          {isLogin ? 'Giriş Yap' : 'Kayıt Ol'}
-        </button>
+        {!isLogin && <input type="text" name="username" placeholder="Kullanıcı Adı" value={formData.username} onChange={handleChange} />}
+        <input type="email" name="email" placeholder="Email" value={formData.email} onChange={handleChange} />
+        <input type="password" name="password" placeholder="Şifre" value={formData.password} onChange={handleChange} />
+        <button type="submit" disabled={isSubmitting}>{isSubmitting ? 'İşleniyor...' : (isLogin ? 'Giriş Yap' : 'Kayıt Ol')}</button>
       </form>
-      <button
-        type="button"
-        onClick={() => {
-          setIsLogin(!isLogin);
-          setError('');
-          setFormData({ username: '', email: '', password: '' });
-        }}
-        className="auth-modal-switch"
-      >
+      <button type="button" onClick={() => { setIsLogin(!isLogin); setError(''); setFormData({ username: '', email: '', password: '' }); }}>
         {isLogin ? 'Kayıt Ol' : 'Giriş Yap'}
       </button>
     </Modal>

@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser, faPen, faGear, faLock } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'react-toastify';
 import { UserContext } from './context/UserContext';
+import { useNavigate } from 'react-router-dom';
 import './Profile.css';
 
 const Profile = ({ setIsAuthModalOpen }) => {
@@ -21,6 +22,8 @@ const Profile = ({ setIsAuthModalOpen }) => {
   const [editData, setEditData] = useState({ username: '', bio: '', profilePicture: '', file: null, preview: null });
   const [passwordData, setPasswordData] = useState({ oldPassword: '', newPassword: '', confirmNewPassword: '' });
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (currentUser) {
@@ -33,22 +36,36 @@ const Profile = ({ setIsAuthModalOpen }) => {
         preview: currentUser.profilePicture || null,
       });
       setLoading(false);
+      try {
+        const token = localStorage.getItem('token');
+        if (token) {
+          const decoded = JSON.parse(atob(token.split('.')[1]));
+          setUserId(decoded.id);
+        } else {
+          navigate('/login', { replace: true });
+        }
+      } catch (err) {
+        console.error('Token çözümleme hatası:', err);
+        navigate('/login', { replace: true });
+      }
     } else {
       setLoading(true);
     }
-  }, [currentUser]);
+  }, [currentUser, navigate]);
 
   const fetchFollowers = async () => {
     try {
       const token = localStorage.getItem('token');
       const decoded = JSON.parse(atob(token.split('.')[1]));
-      const res = await axios.get(`http://localhost:5500/api/user/${decoded.id}/followers`, {
+      const res = await axios.get(`http://localhost:5500/api/users/${decoded.id}/followers`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      console.log('Followers Response:', res.data); // Hata ayıklama için
       setFollowers(res.data || []);
       setShowFollowersModal(true);
     } catch (err) {
-      toast.warn('Takipçiler yüklenemedi: ' + err.message);
+      console.error('Fetch followers error:', err.response?.data || err.message);
+      toast.warn('Takipçiler yüklenemedi: ' + (err.response?.data?.msg || err.message));
       setFollowers([]);
       setShowFollowersModal(true);
     }
@@ -58,13 +75,15 @@ const Profile = ({ setIsAuthModalOpen }) => {
     try {
       const token = localStorage.getItem('token');
       const decoded = JSON.parse(atob(token.split('.')[1]));
-      const res = await axios.get(`http://localhost:5500/api/user/${decoded.id}/following`, {
+      const res = await axios.get(`http://localhost:5500/api/users/${decoded.id}/following`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      console.log('Following Response:', res.data); // Hata ayıklama için
       setFollowing(res.data || []);
       setShowFollowingModal(true);
     } catch (err) {
-      toast.warn('Takip edilenler yüklenemedi: ' + err.message);
+      console.error('Fetch following error:', err.response?.data || err.message);
+      toast.warn('Takip edilenler yüklenemedi: ' + (err.response?.data?.msg || err.message));
       setFollowing([]);
       setShowFollowingModal(true);
     }
@@ -74,13 +93,13 @@ const Profile = ({ setIsAuthModalOpen }) => {
     try {
       const token = localStorage.getItem('token');
       const decoded = JSON.parse(atob(token.split('.')[1]));
-      const res = await axios.get(`http://localhost:5500/api/user/${decoded.id}/blocked`, {
+      const res = await axios.get(`http://localhost:5500/api/users/${decoded.id}/blocked`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setBlockedUsers(res.data || []);
       setShowBlockedModal(true);
     } catch (err) {
-      toast.warn('Engellenenler yüklenemedi: ' + err.message);
+      toast.warn('Engellenenler yüklenemedi: ' + (err.response?.data?.msg || err.message));
       setBlockedUsers([]);
       setShowBlockedModal(true);
     }
@@ -89,7 +108,7 @@ const Profile = ({ setIsAuthModalOpen }) => {
   const handleBlockUser = async (userId) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`http://localhost:5500/api/user/${userId}/block`, {}, {
+      await axios.post(`http://localhost:5500/api/users/${userId}/block`, {}, {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success('Kullanıcı engellendi');
@@ -102,7 +121,7 @@ const Profile = ({ setIsAuthModalOpen }) => {
   const handleUnblockUser = async (userId) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`http://localhost:5500/api/user/${userId}/unblock`, {}, {
+      await axios.post(`http://localhost:5500/api/users/${userId}/unblock`, {}, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setBlockedUsers(blockedUsers.filter(user => user._id !== userId));
@@ -115,7 +134,7 @@ const Profile = ({ setIsAuthModalOpen }) => {
   const handleBanUser = async (userId) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`http://localhost:5500/api/user/${userId}/ban`, {}, {
+      await axios.post(`http://localhost:5500/api/users/${userId}/ban`, {}, {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success('Kullanıcı banlandı');
@@ -128,7 +147,7 @@ const Profile = ({ setIsAuthModalOpen }) => {
   const handleUnbanUser = async (userId) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`http://localhost:5500/api/user/${userId}/unban`, {}, {
+      await axios.post(`http://localhost:5500/api/users/${userId}/unban`, {}, {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success('Ban kaldırıldı');
@@ -158,7 +177,7 @@ const Profile = ({ setIsAuthModalOpen }) => {
         formData.append('profilePicture', editData.profilePicture);
       }
 
-      await axios.put(`http://localhost:5500/api/user/${decoded.id}`, formData, {
+      await axios.put(`http://localhost:5500/api/users/${decoded.id}`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data',
@@ -214,7 +233,7 @@ const Profile = ({ setIsAuthModalOpen }) => {
         oldPassword: passwordData.oldPassword,
         newPassword: passwordData.newPassword,
       });
-      await axios.put(`http://localhost:5500/api/user/${decoded.id}/password`, {
+      await axios.put(`http://localhost:5500/api/users/${decoded.id}/password`, {
         oldPassword: passwordData.oldPassword,
         newPassword: passwordData.newPassword,
       }, {
@@ -235,7 +254,7 @@ const Profile = ({ setIsAuthModalOpen }) => {
   };
 
   if (loading) return <div className="profile-loading">Yükleniyor...</div>;
-  if (!currentUser) return <div className="profile-loading">Kullanıcı bulunamadı</div>;
+  if (!currentUser || !userId) return <div className="profile-loading">Kullanıcı bulunamadı</div>;
 
   return (
     <div className="profile">
@@ -307,10 +326,16 @@ const Profile = ({ setIsAuthModalOpen }) => {
             <ul>
               {followers.length > 0 ? (
                 followers.map((follower, index) => (
-                  <li key={index}>
+                  <li key={index} onClick={() => navigate(`/user/${follower._id}`)} style={{ cursor: 'pointer' }}>
                     {follower.username}
-                    <button onClick={() => handleBlockUser(follower._id)}>Engelle</button>
-                    {isAdmin && <button onClick={() => handleBanUser(follower._id)}>Banla</button>}
+                    <button onClick={(e) => {
+                      e.stopPropagation();
+                      handleBlockUser(follower._id);
+                    }}>Engelle</button>
+                    {isAdmin && <button onClick={(e) => {
+                      e.stopPropagation();
+                      handleBanUser(follower._id);
+                    }}>Banla</button>}
                   </li>
                 ))
               ) : (
@@ -329,10 +354,16 @@ const Profile = ({ setIsAuthModalOpen }) => {
             <ul>
               {following.length > 0 ? (
                 following.map((followed, index) => (
-                  <li key={index}>
+                  <li key={index} onClick={() => navigate(`/user/${followed._id}`)} style={{ cursor: 'pointer' }}>
                     {followed.username}
-                    <button onClick={() => handleBlockUser(followed._id)}>Engelle</button>
-                    {isAdmin && <button onClick={() => handleBanUser(followed._id)}>Banla</button>}
+                    <button onClick={(e) => {
+                      e.stopPropagation();
+                      handleBlockUser(followed._id);
+                    }}>Engelle</button>
+                    {isAdmin && <button onClick={(e) => {
+                      e.stopPropagation();
+                      handleBanUser(followed._id);
+                    }}>Banla</button>}
                   </li>
                 ))
               ) : (
@@ -351,10 +382,16 @@ const Profile = ({ setIsAuthModalOpen }) => {
             <ul>
               {blockedUsers.length > 0 ? (
                 blockedUsers.map((blocked, index) => (
-                  <li key={index}>
+                  <li key={index} onClick={() => navigate(`/user/${blocked._id}`)} style={{ cursor: 'pointer' }}>
                     {blocked.username}
-                    <button onClick={() => handleUnblockUser(blocked._id)}>Engeli Kaldır</button>
-                    {isAdmin && <button onClick={() => handleUnbanUser(blocked._id)}>Ban Kaldır</button>}
+                    <button onClick={(e) => {
+                      e.stopPropagation();
+                      handleUnblockUser(blocked._id);
+                    }}>Engeli Kaldır</button>
+                    {isAdmin && <button onClick={(e) => {
+                      e.stopPropagation();
+                      handleUnbanUser(blocked._id);
+                    }}>Ban Kaldır</button>}
                   </li>
                 ))
               ) : (

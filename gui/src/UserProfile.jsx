@@ -15,6 +15,10 @@ const UserProfile = ({ setIsAuthModalOpen }) => {
   const [user, setUser] = useState(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [followers, setFollowers] = useState([]);
+  const [following, setFollowing] = useState([]);
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isLoadingFollow, setIsLoadingFollow] = useState(false);
 
@@ -35,7 +39,7 @@ const UserProfile = ({ setIsAuthModalOpen }) => {
         navigate('/profile', { replace: true });
         return;
       }
-      const res = await axios.get(`http://localhost:5500/api/user/${id}`, {
+      const res = await axios.get(`http://localhost:5500/api/users/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setUser(res.data);
@@ -48,12 +52,46 @@ const UserProfile = ({ setIsAuthModalOpen }) => {
     }
   };
 
+  const fetchFollowers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`http://localhost:5500/api/users/${id}/followers`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      console.log('Followers Response:', res.data); // Hata ayıklama için
+      setFollowers(res.data || []);
+      setShowFollowersModal(true);
+    } catch (err) {
+      console.error('Fetch followers error:', err.response?.data || err.message);
+      toast.warn('Takipçiler yüklenemedi: ' + (err.response?.data?.msg || err.message));
+      setFollowers([]);
+      setShowFollowersModal(true);
+    }
+  };
+
+  const fetchFollowing = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`http://localhost:5500/api/users/${id}/following`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      console.log('Following Response:', res.data); // Hata ayıklama için
+      setFollowing(res.data || []);
+      setShowFollowingModal(true);
+    } catch (err) {
+      console.error('Fetch following error:', err.response?.data || err.message);
+      toast.warn('Takip edilenler yüklenemedi: ' + (err.response?.data?.msg || err.message));
+      setFollowing([]);
+      setShowFollowingModal(true);
+    }
+  };
+
   const handleFollowToggle = debounce(async () => {
     setIsLoadingFollow(true);
     try {
       const token = localStorage.getItem('token');
       const decoded = JSON.parse(atob(token.split('.')[1]));
-      const endpoint = isFollowing ? `/user/${id}/unfollow` : `/user/${id}/follow`;
+      const endpoint = isFollowing ? `/users/${id}/unfollow` : `/users/${id}/follow`;
       await axios.post(`http://localhost:5500/api${endpoint}`, {}, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -104,7 +142,7 @@ const UserProfile = ({ setIsAuthModalOpen }) => {
   const handleBlockToggle = async () => {
     try {
       const token = localStorage.getItem('token');
-      const endpoint = isBlocked ? `/user/${id}/unblock` : `/user/${id}/block`;
+      const endpoint = isBlocked ? `/users/${id}/unblock` : `/users/${id}/block`;
       await axios.post(`http://localhost:5500/api${endpoint}`, {}, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -132,10 +170,10 @@ const UserProfile = ({ setIsAuthModalOpen }) => {
         <div className="profile-user-info">
           <h1 className="profile-username">{user.username}</h1>
           <div className="profile-stats">
-            <div className="profile-stat" onClick={() => navigate(`/user/${id}/following`)}>
+            <div className="profile-stat" onClick={fetchFollowing}>
               <strong>Following:</strong> {user.followingCount || 0}
             </div>
-            <div className="profile-stat" onClick={() => navigate(`/user/${id}/followers`)}>
+            <div className="profile-stat" onClick={fetchFollowers}>
               <strong>Followers:</strong> {user.followersCount || 0}
             </div>
           </div>
@@ -159,6 +197,54 @@ const UserProfile = ({ setIsAuthModalOpen }) => {
       <div className="profile-bio">
         <p>{user.bio || 'Bio yok'}</p>
       </div>
+
+      {showFollowersModal && (
+        <div className="modal-overlay" onClick={() => setShowFollowersModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Takipçiler</h2>
+            <ul>
+              {followers.length > 0 ? (
+                followers.map((follower, index) => (
+                  <li key={index} onClick={() => navigate(`/user/${follower._id}`)} style={{ cursor: 'pointer' }}>
+                    {follower.username}
+                    <button onClick={(e) => {
+                      e.stopPropagation();
+                      handleBlockToggle(follower._id);
+                    }}>Engelle</button>
+                  </li>
+                ))
+              ) : (
+                <li>Kullanıcı bulunamadı</li>
+              )}
+            </ul>
+            <button onClick={() => setShowFollowersModal(false)}>Kapat</button>
+          </div>
+        </div>
+      )}
+
+      {showFollowingModal && (
+        <div className="modal-overlay" onClick={() => setShowFollowingModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Takip Edilenler</h2>
+            <ul>
+              {following.length > 0 ? (
+                following.map((followed, index) => (
+                  <li key={index} onClick={() => navigate(`/user/${followed._id}`)} style={{ cursor: 'pointer' }}>
+                    {followed.username}
+                    <button onClick={(e) => {
+                      e.stopPropagation();
+                      handleBlockToggle(followed._id);
+                    }}>Engelle</button>
+                  </li>
+                ))
+              ) : (
+                <li>Kullanıcı bulunamadı</li>
+              )}
+            </ul>
+            <button onClick={() => setShowFollowingModal(false)}>Kapat</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

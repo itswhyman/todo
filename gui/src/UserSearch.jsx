@@ -49,7 +49,7 @@ const UserSearch = () => {
               onClick={() => navigate(`/user/${user._id}`)}
             >
               <img
-                src={user.profilePicture || 'https://via.placeholder.com/48x48?text=PP'}
+                src={user.profilePicture || 'https://www.udemy.com/user/yatirim-101/'}
                 alt={`${user.username}'s profile`}
               />
               <span>{user.username}</span>
