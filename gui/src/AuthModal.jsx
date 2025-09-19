@@ -8,12 +8,14 @@ import './AuthModal.css';
 
 const AuthModal = ({ isOpen, onClose, setIsLoggedIn }) => {
   const { fetchCurrentUser } = useContext(UserContext);
-  const [isLogin, setIsLogin] = useState(true);
-  const [formData, setFormData] = useState({ username: '', email: '', password: '' });
+  const [mode, setMode] = useState('login'); // 'login', 'signup', 'forgot'
+  const [formData, setFormData] = useState({ username: '', email: '', password: '', newPassword: '' });
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,48 +23,59 @@ const AuthModal = ({ isOpen, onClose, setIsLoggedIn }) => {
     setError('');
     setIsSubmitting(true);
 
-    if (!formData.email || !formData.password || (!isLogin && !formData.username)) {
-      const msg = 'Form alanları eksik';
-      toast.error(msg);
-      setError(msg);
-      setIsSubmitting(false);
-      return;
-    }
-
     try {
-      const endpoint = isLogin ? '/login' : '/signup';
-      const submitData = isLogin
-        ? { email: formData.email, password: formData.password }
-        : { username: formData.username, email: formData.email, password: formData.password };
+      let res;
+      if (mode === 'login' || mode === 'signup') {
+        if (!formData.email || !formData.password || (mode === 'signup' && !formData.username)) {
+          throw new Error('Form alanları eksik');
+        }
 
-      const res = await axios.post(`http://localhost:5500/api${endpoint}`, submitData, {
-        headers: { 'Content-Type': 'application/json' },
-      });
+        const endpoint = mode === 'login' ? '/login' : '/signup';
+        const submitData = mode === 'login'
+          ? { email: formData.email, password: formData.password }
+          : { username: formData.username, email: formData.email, password: formData.password };
 
-      const { token, user } = res.data;
-      if (!token || !user?.id) throw new Error('Geçersiz yanıt');
+        res = await axios.post(`http://localhost:5500/api${endpoint}`, submitData, {
+          headers: { 'Content-Type': 'application/json' },
+        });
 
-      localStorage.setItem('token', token);
-      localStorage.setItem('userId', user.id);
+        const { token, user } = res.data;
+        if (!token || !user?.id) throw new Error('Geçersiz yanıt');
 
-      await fetchCurrentUser();
-      setIsLoggedIn(true);
-      onClose();
-      toast.success(isLogin ? 'Başarılı giriş!' : 'Başarılı kayıt!');
+        localStorage.setItem('token', token);
+        localStorage.setItem('userId', user.id);
 
-      const from = location.state?.from || '/';
-      navigate(from, { replace: true });
+        await fetchCurrentUser();
+        setIsLoggedIn(true);
+        onClose();
+        toast.success(mode === 'login' ? 'Başarılı giriş!' : 'Başarılı kayıt!');
+        const from = location.state?.from || '/';
+        navigate(from, { replace: true });
+
+      } else if (mode === 'forgot') {
+        if (!formData.email || !formData.newPassword) {
+          throw new Error('Email ve yeni şifre gerekli');
+        }
+
+        await axios.post('http://localhost:5500/api/forgot-password', {
+          email: formData.email,
+          newPassword: formData.newPassword,
+        }, { headers: { 'Content-Type': 'application/json' } });
+
+        toast.success('Şifre başarıyla değiştirildi! Giriş yapabilirsiniz.');
+        setMode('login');
+        setFormData({ username: '', email: '', password: '', newPassword: '' });
+      }
+
     } catch (err) {
       console.error('Auth error:', err.response?.data || err.message);
-      const msg = err.response?.data?.msg || 'Sunucu hatası';
+      const msg = err.response?.data?.msg || err.message || 'Sunucu hatası';
       setError(msg);
       toast.error(msg);
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   return (
     <Modal
@@ -74,16 +87,96 @@ const AuthModal = ({ isOpen, onClose, setIsLoggedIn }) => {
       closeTimeoutMS={200}
       ariaHideApp={false}
     >
-      <h2 className="auth-modal-title">{isLogin ? 'Giriş Yap' : 'Kayıt Ol'}</h2>
+      <h2 className="auth-modal-title">
+        {mode === 'login' ? 'Giriş Yap' : mode === 'signup' ? 'Kayıt Ol' : 'Şifremi Unuttum'}
+      </h2>
+
       {error && <p className="auth-error">{error}</p>}
+
       <form onSubmit={handleSubmit} className="auth-modal-form">
-        {!isLogin && <input type="text" name="username" placeholder="Kullanıcı Adı" value={formData.username} onChange={handleChange} />}
-        <input type="email" name="email" placeholder="Email" value={formData.email} onChange={handleChange} />
-        <input type="password" name="password" placeholder="Şifre" value={formData.password} onChange={handleChange} />
-        <button type="submit" disabled={isSubmitting}>{isSubmitting ? 'İşleniyor...' : (isLogin ? 'Giriş Yap' : 'Kayıt Ol')}</button>
+        {mode === 'signup' && (
+          <input
+            type="text"
+            name="username"
+            placeholder="Kullanıcı Adı"
+            value={formData.username}
+            onChange={handleChange}
+          />
+        )}
+
+        <input
+          type="email"
+          name="email"
+          placeholder="Email"
+          value={formData.email}
+          onChange={handleChange}
+        />
+
+        {mode === 'login' && (
+          <input
+            type="password"
+            name="password"
+            placeholder="Şifre"
+            value={formData.password}
+            onChange={handleChange}
+          />
+        )}
+
+        {mode === 'signup' && (
+          <input
+            type="password"
+            name="password"
+            placeholder="Şifre"
+            value={formData.password}
+            onChange={handleChange}
+          />
+        )}
+
+        {mode === 'forgot' && (
+          <input
+            type="password"
+            name="newPassword"
+            placeholder="Yeni Şifre"
+            value={formData.newPassword}
+            onChange={handleChange}
+          />
+        )}
+
+        <button type="submit" disabled={isSubmitting}>
+          {isSubmitting
+            ? 'İşleniyor...'
+            : mode === 'login'
+            ? 'Giriş Yap'
+            : mode === 'signup'
+            ? 'Kayıt Ol'
+            : 'Şifreyi Sıfırla'}
+        </button>
       </form>
-      <button type="button" onClick={() => { setIsLogin(!isLogin); setError(''); setFormData({ username: '', email: '', password: '' }); }}>
-        {isLogin ? 'Kayıt Ol' : 'Giriş Yap'}
+
+      {mode === 'login' && (
+        <button
+          type="button"
+          className="auth-modal-switch"
+          onClick={() => setMode('forgot')}
+        >
+          Şifremi Unuttum
+        </button>
+      )}
+
+      <button
+        type="button"
+        className="auth-modal-switch"
+        onClick={() => {
+          setMode(mode === 'login' ? 'signup' : 'login');
+          setError('');
+          setFormData({ username: '', email: '', password: '', newPassword: '' });
+        }}
+      >
+        {mode === 'login'
+          ? 'Hesabım yok'
+          : mode === 'signup'
+          ? 'Hesabım var'
+          : 'Girişe dön'}
       </button>
     </Modal>
   );
